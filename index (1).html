@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경력기술서 템플릿</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @page { margin: 0; }
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff; padding: 10mm 0; }
+    .page { box-shadow: none; max-width: 100%; border-radius: 0; }
+    .no-print { display: none !important; }
+    [contenteditable] { outline: none !important; border: none !important; }
+    .drag-handle, .add-btn, .del-btn, .edit-chip-del { display: none !important; }
+  }
+
+  :root {
+    --ink:     #1a1916;
+    --ink-60:  #6b6862;
+    --ink-30:  #b5b2ac;
+    --ink-10:  #f0ede8;
+    --rule:    #dddad4;
+    --accent:  #1a3a5c;
+    --accent2: #0d6e56;
+    --bg:      #faf9f6;
+    --serif: 'Noto Serif KR', serif;
+    --sans:  'Noto Sans KR', sans-serif;
+    --mono:  'DM Mono', monospace;
+  }
+
+
+  /* ─── EDIT MODE ─── */
+  .edit-toolbar {
+    position: fixed;
+    top: 16px; left: 50%; transform: translateX(-50%);
+    background: #1a1916;
+    border-radius: 8px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    white-space: nowrap;
+  }
+  .edit-toolbar .tb-label { letter-spacing: 0.1em; text-transform: uppercase; }
+  .tb-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.15); }
+  .tb-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.8);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tb-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .tb-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .tb-btn.danger { background: rgba(180,40,40,0.25); border-color: rgba(200,60,60,0.4); color: #f9a0a0; }
+  .tb-btn.danger:hover { background: rgba(180,40,40,0.45); }
+  .edit-hint {
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.05em;
+  }
+  #dirty-indicator {
+    display: none;
+    font-size: 10px;
+    color: #d4923a;
+    letter-spacing: 0.05em;
+  }
+
+  #autosave-banner {
+    position: fixed;
+    top: 70px; left: 50%; transform: translateX(-50%);
+    background: #2d1c06; color: #d4923a;
+    border: 1px solid rgba(212,146,58,0.4);
+    font-family: var(--mono); font-size: 11px;
+    padding: 10px 18px; border-radius: 6px;
+    z-index: 1001; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 12px;
+    white-space: nowrap;
+  }
+
+  /* editable elements */
+  body.edit-mode [contenteditable] {
+    outline: none;
+    border-radius: 3px;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  body.edit-mode [contenteditable]:hover {
+    background: rgba(13,110,86,0.07);
+    box-shadow: 0 0 0 2px rgba(13,110,86,0.18);
+  }
+  body.edit-mode [contenteditable]:focus {
+    background: rgba(13,110,86,0.06);
+    box-shadow: 0 0 0 2px rgba(13,110,86,0.45);
+  }
+  body.edit-mode .header [contenteditable]:hover { background: rgba(255,255,255,0.1); box-shadow: 0 0 0 2px rgba(255,255,255,0.25); }
+  body.edit-mode .header [contenteditable]:focus { background: rgba(255,255,255,0.08); box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+  body.edit-mode .tag-bar [contenteditable]:hover { background: rgba(255,255,255,0.08); box-shadow: 0 0 0 2px rgba(255,255,255,0.2); }
+
+  /* drag handles */
+  .drag-handle {
+    display: none;
+    position: absolute;
+    left: -26px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 28px;
+    cursor: grab;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-30);
+    border-radius: 3px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .drag-handle:hover { color: var(--ink-60); background: var(--ink-10); }
+  .drag-handle svg { width: 10px; height: 14px; }
+  .drag-handle:active { cursor: grabbing; }
+
+  body.edit-mode .company,
+  body.edit-mode .phase {
+    position: relative;
+  }
+  body.edit-mode .drag-handle { display: flex; }
+  body.edit-mode .phase > .drag-handle { left: 2px; }
+
+  .dragging { opacity: 0.45; background: rgba(13,110,86,0.05); border-radius: 4px; }
+  .drag-over-top { box-shadow: 0 -2px 0 0 var(--accent2); }
+  .drag-over-bottom { box-shadow: 0 2px 0 0 var(--accent2); }
+
+  /* tag bar drag */
+  body.edit-mode .tag { cursor: grab; position: relative; }
+  body.edit-mode .tag:active { cursor: grabbing; }
+  .tag.tag-dragging { opacity: 0.4; }
+  .tag.drag-over-left  { box-shadow: -3px 0 0 0 var(--accent2); }
+  .tag.drag-over-right { box-shadow:  3px 0 0 0 var(--accent2); }
+
+  /* add / delete inline buttons */
+  .add-btn, .del-btn {
+    display: none;
+    cursor: pointer;
+    border: none;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    padding: 2px 8px;
+  }
+  .add-btn {
+    background: rgba(13,110,86,0.1);
+    color: var(--accent2);
+    border: 1px dashed rgba(13,110,86,0.35);
+    margin-top: 6px;
+    width: 100%;
+    text-align: left;
+  }
+  .add-btn:hover { background: rgba(13,110,86,0.18); }
+  .del-btn {
+    background: rgba(180,40,40,0.1);
+    color: #b43030;
+    border: 1px solid rgba(180,40,40,0.2);
+    margin-left: 8px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+  .del-btn:hover { background: rgba(180,40,40,0.22); }
+  body.edit-mode .add-btn,
+  body.edit-mode .del-btn { display: inline-block; }
+  body.edit-mode ul.bullets li { display: flex; align-items: flex-start; gap: 0; }
+  body.edit-mode ul.bullets li .li-text { flex: 1; }
+
+  /* chip edit */
+  .edit-chip-del {
+    display: none;
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 9px;
+    opacity: 0.6;
+    vertical-align: middle;
+  }
+  .edit-chip-del:hover { opacity: 1; }
+  body.edit-mode .edit-chip-del { display: inline; }
+
+  .add-chip-btn {
+    display: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    background: transparent;
+    border: 1px dashed rgba(13,110,86,0.4);
+    color: var(--accent2);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .add-chip-btn:hover { background: rgba(13,110,86,0.1); }
+  body.edit-mode .add-chip-btn { display: inline-block; }
+
+  /* section reorder */
+  body.edit-mode .section { position: relative; }
+  body.edit-mode .section-title { cursor: default; }
+
+  body {
+    background: #e8e5df;
+    font-family: var(--sans);
+    color: var(--ink);
+    line-height: 1.7;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    background: var(--bg);
+    box-shadow: 0 4px 40px rgba(0,0,0,0.14);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    background: var(--accent);
+    color: #fff;
+    padding: 52px 60px 44px;
+    position: relative;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0d6e56 0%, #1a8a6a 50%, transparent 100%);
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+  }
+  .name {
+    font-family: var(--serif);
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 3px;
+  }
+  .name-en {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .title-pill {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.92);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+  }
+  .contact-block {
+    text-align: right;
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.6);
+    line-height: 2.1;
+    font-family: var(--mono);
+  }
+  .contact-block a { color: rgba(255,255,255,0.75); text-decoration: none; }
+
+  .positioning {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    font-size: 14.5px;
+    color: rgba(255,255,255,0.8);
+    line-height: 1.85;
+    max-width: 620px;
+  }
+  .positioning strong {
+    color: rgba(255,255,255,0.98);
+    font-weight: 500;
+  }
+
+  /* ─── TAG BAR ─── */
+  .tag-bar {
+    background: var(--ink);
+    padding: 16px 60px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .tag-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    font-family: var(--mono);
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tag.rec   { background: #142d45; color: #7ab3d8; }
+  .tag.data  { background: #0b2d22; color: #4fc99a; }
+  .tag.ai    { background: #271550; color: #b09de8; }
+  .tag.pm    { background: #2d1c06; color: #d4923a; }
+
+  /* ─── BODY ─── */
+  .body { padding: 48px 60px; }
+
+  /* ─── SECTION ─── */
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-30);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* ─── COMPANY BLOCK ─── */
+  .company { margin-bottom: 36px; }
+  .company:last-child { margin-bottom: 0; }
+
+  .company-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .company-name {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .company-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-60);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .company-sub {
+    font-size: 12.5px;
+    color: var(--ink-60);
+    margin-bottom: 14px;
+    font-weight: 400;
+  }
+  .company-sub .role-badge {
+    display: inline-block;
+    background: var(--ink-10);
+    color: var(--ink-60);
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* ─── PHASE ─── */
+  .phase {
+    margin-bottom: 18px;
+    padding-left: 16px;
+    border-left: 2.5px solid var(--rule);
+  }
+  .phase:last-child { margin-bottom: 0; }
+  .phase.accent-green { border-left-color: var(--accent2); }
+  .phase.accent-blue  { border-left-color: var(--accent); }
+  .phase.accent-amber { border-left-color: #c47d14; }
+  .phase.accent-purple{ border-left-color: #6244b8; }
+
+  .phase-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .phase-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .phase-period {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-30);
+    letter-spacing: 0.04em;
+  }
+
+  ul.bullets {
+    list-style: none;
+    padding: 0;
+  }
+  ul.bullets li {
+    font-size: 13.5px;
+    color: var(--ink-60);
+    line-height: 1.75;
+    padding-left: 14px;
+    position: relative;
+    margin-bottom: 2px;
+  }
+  ul.bullets li::before {
+    content: '–';
+    position: absolute;
+    left: 0;
+    color: var(--ink-30);
+  }
+  ul.bullets li strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .outcome-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .outcome-chip {
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-family: var(--mono);
+  }
+  .chip-green  { background: #e0f5ed; color: #0a5a40; }
+  .chip-blue   { background: #e2ecf6; color: #103558; }
+  .chip-amber  { background: #fdf0db; color: #7a4c08; }
+  .chip-purple { background: #ede9fc; color: #3a2480; }
+  .chip-gray   { background: var(--ink-10); color: var(--ink-60); }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 36px 0;
+  }
+
+  /* ─── SKILLS ─── */
+  .skill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .skill-group-title {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .skill-list {
+    font-size: 13px;
+    color: var(--ink-60);
+    line-height: 2;
+  }
+  .skill-list span {
+    display: block;
+  }
+  .skill-list .highlight {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ─── NOTE ─── */
+  .note-box {
+    background: var(--ink-10);
+    border-left: 3px solid var(--accent2);
+    padding: 14px 18px;
+    border-radius: 0 2px 2px 0;
+    margin-top: 6px;
+  }
+  .note-box p {
+    font-size: 12.5px;
+    color: var(--ink-60);
+    line-height: 1.7;
+  }
+  .note-box p strong { color: var(--ink); font-weight: 500; }
+
+  /* ─── PRINT BUTTON ─── */
+  .print-bar {
+    background: var(--ink-10);
+    border-top: 1px solid var(--rule);
+    padding: 16px 60px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 8px 18px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    color: var(--ink-60);
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--ink-60); color: var(--ink); }
+  .btn.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover { background: #142d4a; }
+
+  @media (max-width: 640px) {
+    .header, .body, .print-bar, .tag-bar { padding-left: 28px; padding-right: 28px; }
+    .header-top { flex-direction: column; }
+    .contact-block { text-align: left; }
+    .skill-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .tag-color-popup {
+    position: absolute;
+    top: calc(100% + 6px); left: 0;
+    background: #1a1916;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    gap: 6px;
+    z-index: 2000;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .tag-color-popup .tcp-swatch {
+    width: 22px; height: 22px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .tag-color-popup .tcp-swatch:hover { border-color: rgba(255,255,255,0.5); }
+  .tag-color-popup .tcp-swatch.active { border-color: #fff; }
+
+  /* ─── COLOR PALETTE POPUP ─── */
+  .color-palette-popup {
+    position: fixed;
+    background: #2a2826;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .color-palette-popup .cp-label {
+    color: rgba(255,255,255,0.35);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+  .color-palette-popup .cp-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .color-palette-popup .cp-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+  }
+  .color-palette-popup .cp-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .color-palette-popup .cp-swatch:hover .cp-dot { border-color: rgba(255,255,255,0.5); }
+  .color-palette-popup .cp-name {
+    font-size: 8px;
+    color: rgba(255,255,255,0.4);
+    font-family: var(--mono);
+  }
+  .color-palette-popup .cp-reset {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-palette-popup .cp-reset-lbl {
+    font-size: 9px;
+    color: rgba(255,255,255,0.3);
+    font-family: var(--mono);
+  }
+  .color-palette-popup .cp-reset-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.45);
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .color-palette-popup .cp-reset-btn:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); }
+
+  /* ─── FIELD HINT TOOLTIP ─── */
+  [data-hint] { position: relative; }
+
+  [data-hint]::after {
+    content: attr(data-hint);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    background: #1a1916;
+    color: rgba(255,255,255,0.82);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    font-style: normal;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 8000;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  [data-hint]::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 12px;
+    border: 5px solid transparent;
+    border-top-color: #1a1916;
+    z-index: 8001;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  [data-hint]:hover::after,
+  [data-hint]:hover::before {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* 헤더 영역은 툴팁을 아래쪽에 표시 */
+  .header [data-hint]::after {
+    bottom: auto;
+    top: calc(100% + 8px);
+    transform: translateY(-4px);
+  }
+  .header [data-hint]::before {
+    bottom: auto;
+    top: calc(100% + 2px);
+    border-top-color: transparent;
+    border-bottom-color: #1a1916;
+  }
+  .header [data-hint]:hover::after {
+    transform: translateY(0);
+  }
+
+  /* 태그바 툴팁도 아래쪽 */
+  .tag-bar [data-hint]::after {
+    bottom: auto;
+    top: calc(100% + 8px);
+    transform: translateY(-4px);
+  }
+  .tag-bar [data-hint]::before {
+    bottom: auto;
+    top: calc(100% + 2px);
+    border-top-color: transparent;
+    border-bottom-color: #1a1916;
+  }
+  .tag-bar [data-hint]:hover::after {
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="name-block">
+        <div class="name" data-hint="성명을 입력하세요  (예: 홍 길 동)">이 름</div>
+        <div class="name-en" data-hint="영문이름 · 직군/분야  (예: Kim Jiyeon · Product Design)">Your Name · Job Title / Field</div>
+        <div class="title-pill" data-hint="직무 핵심 키워드 3~4개  (예: 기획 · 데이터 분석 · PM)">핵심 역할 · 전문 분야 · 키워드</div>
+      </div>
+      <div class="contact-block no-print">
+        <div data-hint="재직 상태  (예: 재직중 (협의 가능) / 구직중)">재직 상태</div>
+        <div data-hint="현 소속 회사명">현 소속 회사</div>
+      </div>
+    </div>
+    <div class="positioning" data-hint="나를 한 문단으로 정의하는 포지셔닝. 강점·방식·성과를 담아 2~4문장으로 작성.">
+      <strong>한 문장으로 나를 정의하는 포지셔닝 문구.</strong>
+      내가 어떤 문제를 어떤 방식으로 풀어온 사람인지, 단순한 직무 나열이 아닌 나만의 관점과 강점을 담아 작성합니다.
+      채용 담당자가 "이 사람은 이런 사람이구나"를 바로 파악할 수 있는 2~4문장으로 구성합니다.
+    </div>
+  </div>
+
+  <!-- TAG BAR -->
+  <div class="tag-bar">
+    <span class="tag-label">Core</span>
+    <span class="tag rec" data-hint="핵심 역량 태그 — 우클릭으로 색상 변경, 드래그로 순서 변경">핵심 역량 1</span>
+    <span class="tag rec" data-hint="핵심 역량 태그 — 우클릭으로 색상 변경, 드래그로 순서 변경">핵심 역량 2</span>
+    <span class="tag data" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">데이터 / 분석 역량</span>
+    <span class="tag ai" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">AI / 기술 역량</span>
+    <span class="tag pm" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">프로젝트 관리</span>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- ─── 경력 ─── -->
+    <div class="section">
+      <div class="section-title">경력</div>
+
+      <!-- 회사 1 (가장 최근) -->
+      <div class="company">
+        <div class="company-header">
+          <div class="company-name" data-hint="회사명  (예: 카카오, Naver Corp., 스타트업명)">회사명</div>
+          <div class="company-meta" data-hint="재직 기간  (예: 2022.03 — 2024.12 · 약 2년 9개월)">0000.00 — 재직중 · 약 N년 N개월</div>
+        </div>
+        <div class="company-sub" data-hint="업종/산업 및 직책 변화 흐름을 간략히">
+          업종 / 산업
+          <span class="role-badge">직책 변화 흐름 (예: 주니어 → 시니어)</span>
+        </div>
+
+        <!-- Phase 1 -->
+        <div class="phase accent-green">
+          <div class="phase-header">
+            <span class="phase-title" data-hint="이 시기의 역할명 또는 주요 프로젝트  (예: 서비스 런칭 PM · 데이터 파이프라인 구축)">이 시기의 핵심 역할 또는 프로젝트명</span>
+            <span class="phase-period" data-hint="해당 기간  (예: 2023.01 — 2024.06)">0000.00 — 0000.00</span>
+          </div>
+          <ul class="bullets">
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">담당 업무와 책임 범위를 구체적으로 기술합니다. <strong>강조할 핵심 키워드</strong>는 굵게 처리합니다.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">숫자, 규모, 결과를 포함하면 더욱 효과적입니다. 예: <strong>00명 규모</strong> 프로젝트 리드, <strong>00% 개선</strong> 달성.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">단순 나열보다 "무엇을 → 어떻게 → 어떤 결과로"의 흐름으로 작성합니다.</li>
+          </ul>
+          <div class="outcome-row">
+            <span class="outcome-chip chip-green" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 1</span>
+            <span class="outcome-chip chip-green" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 2</span>
+            <span class="outcome-chip chip-green" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 3</span>
+          </div>
+        </div>
+
+        <!-- Phase 2 -->
+        <div class="phase accent-amber">
+          <div class="phase-header">
+            <span class="phase-title">두 번째 역할 전환 시기 또는 주요 프로젝트</span>
+            <span class="phase-period">0000.00 — 0000.00</span>
+          </div>
+          <ul class="bullets">
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">역할이 변화하거나 새로운 도전을 맡은 시기라면 Phase를 나누어 표현합니다.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">이 시기에 새롭게 확장된 역할, 습득한 역량, 기여한 성과를 중심으로 작성합니다.</li>
+          </ul>
+          <div class="outcome-row">
+            <span class="outcome-chip chip-amber" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 1</span>
+            <span class="outcome-chip chip-amber" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 2</span>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- 회사 2 -->
+      <div class="company">
+        <div class="company-header">
+          <div class="company-name">이전 회사명</div>
+          <div class="company-meta">약 N년 N개월</div>
+        </div>
+        <div class="company-sub">
+          업종 / 산업
+          <span class="role-badge">직책</span>
+        </div>
+
+        <div class="phase accent-blue">
+          <div class="phase-header">
+            <span class="phase-title">주요 담당 업무 요약</span>
+            <span class="phase-period">재직기간 전체</span>
+          </div>
+          <ul class="bullets">
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">회사 규모, 팀 구성, 담당 영역 등 맥락을 먼저 간략히 제시합니다.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">이 회사에서 가장 의미 있었던 경험이나 성장 포인트를 구체적으로 작성합니다.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">다음 커리어 단계와의 연결성이 보이면 더욱 좋습니다.</li>
+          </ul>
+          <div class="outcome-row">
+            <span class="outcome-chip chip-blue" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 1</span>
+            <span class="outcome-chip chip-blue" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 2</span>
+            <span class="outcome-chip chip-blue" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">성과 / 결과물 3</span>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- 회사 3 (초기 경력) -->
+      <div class="company">
+        <div class="company-header">
+          <div class="company-name">첫 번째 / 초기 회사명</div>
+          <div class="company-meta">N년 N개월</div>
+        </div>
+        <div class="company-sub">
+          업종 / 산업
+          <span class="role-badge">직책 (신입 / 인턴 등)</span>
+        </div>
+
+        <div class="phase">
+          <div class="phase-header">
+            <span class="phase-title">담당 업무 및 성장 경험</span>
+            <span class="phase-period">재직기간 전체</span>
+          </div>
+          <ul class="bullets">
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">커리어 초기의 경험도 현재 역량의 뿌리가 됩니다. 당시 배운 것, 맡은 역할, 기여를 담담하게 기술합니다.</li>
+            <li data-hint="무엇을 → 어떻게 → 어떤 결과로의 흐름으로 작성. 숫자·규모 포함 시 효과적.">초기 경력일수록 "어떤 환경에서, 무엇을 직접 했는가"를 명확히 드러내는 것이 중요합니다.</li>
+          </ul>
+          <div class="outcome-row">
+            <span class="outcome-chip chip-gray" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">경험 / 역할 1</span>
+            <span class="outcome-chip chip-gray" data-hint="이 시기 핵심 성과를 한 줄로  (예: MAU 30% 성장, 채용 130명 클로징)">경험 / 역할 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 보유 역량 & 도구 ─── -->
+    <div class="section">
+      <div class="section-title">보유 역량 & 도구</div>
+      <div class="skill-grid">
+        <div>
+          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">전문 역량</div>
+          <div class="skill-list">
+            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">핵심 강점 기술 1</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 2</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 3</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 4</span>
+            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">핵심 강점 기술 5</span>
+          </div>
+        </div>
+        <div>
+          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">도구 & 기술</div>
+          <div class="skill-list">
+            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">주력 도구 / 기술 1</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 2</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 3</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 4</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 5</span>
+          </div>
+        </div>
+        <div>
+          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">기타 / 소프트 스킬</div>
+          <div class="skill-list">
+            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">리더십 / PM 역량</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">커뮤니케이션 특기</span>
+            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">협업 방식의 강점</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">언어 능력 (영어 등)</span>
+            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">기타 강점</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 업무 스타일 ─── -->
+    <div class="section">
+      <div class="section-title">업무 스타일</div>
+      <div class="note-box">
+        <p data-hint="나만의 업무 스타일·접근 방식을 2~4문장으로. 지원 포지션과 연결되면 더욱 효과적.">
+          <strong>나만의 업무 접근 방식을 한두 문장으로 정의합니다.</strong>
+          예: "문제를 먼저 구조화하고, 데이터를 기반으로 판단하며, 만들어진 것이 실제로 쓰일 때까지 끝까지 관여합니다."
+          지원하는 회사나 포지션의 문화와 연결되는 방식으로 작성하면 더욱 효과적입니다.
+          업무 지시가 없는 영역에서도 스스로 문제를 발굴하고 솔루션을 만들어내는 성향이 있다면 구체적인 에피소드와 함께 언급합니다.
+        </p>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- PRINT BAR -->
+  <div class="print-bar no-print" id="print-bar">
+    <button class="btn" onclick="window.print()">인쇄 / PDF 저장</button>
+  </div>
+
+</div><!-- /page -->
+
+<!-- EDIT TOOLBAR -->
+<div class="edit-toolbar no-print" id="edit-toolbar" style="display:none;">
+  <span class="tb-label">✏ 편집 모드</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="fmtBold()" title="굵게 (Ctrl+B)"><b>B</b></button>
+  <button class="tb-btn" onclick="fmtItalic()" title="기울임 (Ctrl+I)"><i>I</i></button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="openColorPalette(event)" title="텍스트 색상 선택" id="color-btn">
+    <span id="color-swatch-cur" style="display:inline-block;width:9px;height:9px;background:#1a1916;border-radius:2px;border:1px solid rgba(255,255,255,0.3);vertical-align:middle;"></span>
+    <span style="font-size:10px;vertical-align:middle;margin:0 2px 0 3px;">Color</span>
+    <span style="color:rgba(255,255,255,0.4);vertical-align:middle;font-size:8px;">▾</span>
+  </button>
+  <div class="tb-sep"></div>
+  <span class="edit-hint">텍스트 클릭 후 수정 · 항목 드래그로 순서 변경</span>
+  <span id="dirty-indicator">● 변경됨</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="saveJSON()" title="JSON으로 버전 저장 (Ctrl+S)">↓ JSON 저장</button>
+  <button class="tb-btn" onclick="loadJSON()" title="저장된 버전 불러오기">↑ 버전 불러오기</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn danger" onclick="toggleEdit()">편집 종료</button>
+</div>
+
+<div id="autosave-banner" style="display:none">
+  <span>⚠ 이전 자동 백업이 있습니다.</span>
+  <button onclick="restoreAutosave()" style="background:rgba(212,146,58,0.2);border:1px solid rgba(212,146,58,0.5);color:#d4923a;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:3px;cursor:pointer;">복원</button>
+  <button onclick="dismissAutosave()" style="background:transparent;border:none;color:rgba(212,146,58,0.6);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">무시</button>
+</div>
+
+<!-- EDIT TOGGLE -->
+<div style="position:fixed; bottom:24px; right:24px; z-index:999;" class="no-print">
+  <button id="edit-toggle-btn" onclick="toggleEdit()" style="
+    background: #1a3a5c; color:#fff; border:none;
+    font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    padding: 10px 18px; border-radius:6px; cursor:pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    transition: all 0.2s; white-space:nowrap; display:block; width:100%;
+  ">✏ 편집 모드</button>
+  <button onclick="saveHTML()" style="
+    background: #0d6e56; color:#fff; border:none;
+    font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    padding: 10px 18px; border-radius:6px; cursor:pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    transition: all 0.2s; white-space:nowrap; margin-top: 8px; display:block; width:100%;
+  ">↓ HTML 저장</button>
+  <button onclick="saveJSON()" style="
+    background: #0a5a40; color:#fff; border:none;
+    font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    padding: 10px 18px; border-radius:6px; cursor:pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    transition: all 0.2s; white-space:nowrap; margin-top: 8px; display:block; width:100%;
+  ">↓ JSON 저장</button>
+</div>
+
+<script>
+/* ─── DIRTY STATE ─── */
+let dirtyState = false;
+let dirtyObserver = null;
+
+function setDirty(val) {
+  dirtyState = val;
+  const el = document.getElementById('dirty-indicator');
+  if (el) el.style.display = val ? 'inline' : 'none';
+  if (val) scheduleAutosave();
+}
+
+const AUTOSAVE_KEY = 'career_autosave';
+const JSON_VERSION = '1.0';
+let autosaveTimer = null;
+
+function scheduleAutosave() {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(doAutosave, 30000);
+}
+
+function clearAutosave() {
+  try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+  if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
+}
+
+function doAutosave() {
+  try {
+    const htmlContent = getCleanHTMLString();
+    const payload = JSON.stringify({ savedAt: new Date().toISOString(), htmlContent });
+    localStorage.setItem(AUTOSAVE_KEY, payload);
+  } catch (e) {
+    console.warn('Autosave failed:', e);
+  }
+}
+
+function checkAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const banner = document.getElementById('autosave-banner');
+    if (banner) banner.style.display = 'flex';
+  } catch (e) {}
+}
+
+function restoreAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data.htmlContent) return;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(data.htmlContent, 'text/html');
+    const newPage = doc.querySelector('.page');
+    if (newPage) {
+      if (dirtyObserver) dirtyObserver.disconnect();
+      const target = document.querySelector('.page');
+      if (target) target.innerHTML = newPage.innerHTML;
+      if (editMode) setTimeout(initDirtyObserver, 0);
+    }
+    dismissAutosave();
+    setDirty(false);
+    showToast('자동 백업 복원 완료 (' + (data.savedAt || '').slice(0, 16) + ')');
+  } catch (e) {
+    alert('백업 복원 중 오류: ' + e.message);
+  }
+}
+
+function dismissAutosave() {
+  clearAutosave();
+  const banner = document.getElementById('autosave-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+window.addEventListener('DOMContentLoaded', checkAutosave);
+
+function initDirtyObserver() {
+  if (dirtyObserver) dirtyObserver.disconnect();
+  dirtyObserver = new MutationObserver(() => setDirty(true));
+  dirtyObserver.observe(document.querySelector('.page'), {
+    childList: true, subtree: true, characterData: true, attributes: true
+  });
+}
+
+/* ─── TAG COLOR CHANGE ─── */
+const TAG_COLORS = [
+  { cls: 'rec',    bg: '#142d45', label: '파랑' },
+  { cls: 'data',   bg: '#0b2d22', label: '초록 (데이터)' },
+  { cls: 'ai',     bg: '#271550', label: '보라 (AI)' },
+  { cls: 'pm',     bg: '#2d1c06', label: '주황 (PM)' },
+];
+
+function initTagColorChange() {
+  document.querySelectorAll('.tag-bar .tag').forEach(tag => {
+    if (tag.dataset.colorReady) return;
+    tag.dataset.colorReady = '1';
+    tag.style.position = 'relative';
+
+    tag.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openTagColorPopup(tag);
+    });
+  });
+}
+
+function openTagColorPopup(tag) {
+  closeTagColorPopup();
+  const currentCls = TAG_COLORS.find(c => tag.classList.contains(c.cls))?.cls;
+  const popup = document.createElement('div');
+  popup.className = 'tag-color-popup';
+  popup.id = 'tcp';
+
+  const closeHandler = () => closeTagColorPopup();
+
+  TAG_COLORS.forEach(({ cls, bg, label }) => {
+    const sw = document.createElement('div');
+    sw.className = 'tcp-swatch' + (cls === currentCls ? ' active' : '');
+    sw.style.background = bg;
+    sw.title = label;
+    sw.onclick = (e) => {
+      e.stopPropagation();
+      document.removeEventListener('click', closeHandler);
+      TAG_COLORS.forEach(c => tag.classList.remove(c.cls));
+      tag.classList.add(cls);
+      closeTagColorPopup();
+    };
+    popup.appendChild(sw);
+  });
+
+  tag.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', closeHandler), 0);
+}
+
+function closeTagColorPopup() {
+  const el = document.getElementById('tcp');
+  if (el) el.remove();
+}
+
+/* ─── SHARED: 편집 UI 제거된 HTML 문자열 반환 ─── */
+function getCleanHTMLString(snapshotDate) {
+  const clone = document.documentElement.cloneNode(true);
+
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
+  const editSelectors = [
+    '#edit-toolbar', '#edit-toggle-btn', '.edit-toolbar',
+    '.add-btn', '.del-btn', '.add-chip-btn', '.edit-chip-del', '.drag-handle',
+    '.add-phase-btn', '.add-company-btn',
+    '#autosave-banner', '#cpp', '#tcp',
+  ];
+  editSelectors.forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
+
+  clone.querySelectorAll('[style*="position:fixed"]').forEach(el => el.remove());
+
+  clone.querySelectorAll('script').forEach(el => el.remove());
+
+  const printBar = clone.querySelector('#print-bar');
+  if (printBar) {
+    printBar.innerHTML = '<button onclick="window.print()" style="font-family:\'DM Mono\',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 18px;border:1px solid #dddad4;background:#faf9f6;color:#6b6862;cursor:pointer;border-radius:2px;text-transform:uppercase;">인쇄 / PDF 저장</button>';
+  }
+
+  const today = snapshotDate || new Date().toISOString().slice(0, 10);
+  const meta = document.createElement('meta');
+  meta.name = 'description';
+  meta.content = '경력기술서 템플릿 — ' + today;
+  const head = clone.querySelector('head');
+  if (head) head.insertBefore(meta, head.firstChild);
+
+  return '<!DOCTYPE html>\n<!-- snapshot: ' + today + ' -->\n' + clone.outerHTML;
+}
+
+/* ─── HTML SAVE (clean snapshot) ─── */
+function saveHTML() {
+  if (editMode) toggleEdit();
+  const today = new Date().toISOString().slice(0, 10);
+  const html = getCleanHTMLString(today);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'career_' + today + '.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ─── JSON SAVE ─── */
+async function saveJSON() {
+  if (editMode) toggleEdit();
+
+  const now = new Date();
+  const savedAt = now.toISOString().slice(0, 19);
+  const dateStr = now.toISOString().slice(0, 10);
+
+  const htmlContent = getCleanHTMLString(dateStr);
+  const payload = JSON.stringify({
+    version: JSON_VERSION,
+    savedAt,
+    title: '경력기술서',
+    htmlContent,
+  }, null, 2);
+
+  let writable;
+  try {
+    const fh = await window.showSaveFilePicker({
+      suggestedName: 'career_' + dateStr + '.json',
+      startIn: 'downloads',
+      types: [{ description: 'JSON 버전 파일', accept: { 'application/json': ['.json'] } }],
+    });
+    writable = await fh.createWritable();
+    await writable.write(payload);
+    await writable.close();
+    setDirty(false);
+    clearAutosave();
+    showToast('JSON 저장 완료: ' + fh.name);
+  } catch (e) {
+    if (writable) { try { await writable.abort(); } catch (_) {} }
+    if (e.name !== 'AbortError') alert('저장 중 오류: ' + e.message);
+  }
+}
+
+/* ─── JSON LOAD ─── */
+async function loadJSON() {
+  if (dirtyState) {
+    const ok = confirm('저장하지 않은 변경사항이 있습니다. 버전을 불러오면 현재 내용이 사라집니다. 계속하시겠어요?');
+    if (!ok) return;
+  }
+
+  try {
+    const [fh] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON 버전 파일', accept: { 'application/json': ['.json'] } }],
+      multiple: false,
+    });
+    const file = await fh.getFile();
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    if (!data.htmlContent) {
+      alert('유효하지 않은 파일 형식입니다.');
+      return;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(data.htmlContent, 'text/html');
+    const newPage = doc.querySelector('.page');
+    if (!newPage) { alert('파일에서 콘텐츠를 찾을 수 없습니다.'); return; }
+
+    document.querySelector('.page').innerHTML = newPage.innerHTML;
+
+    if (editMode) {
+      document.execCommand('styleWithCSS', false, true);
+      makeEditable();
+      initDrag();
+      initBulletControls();
+      initChipControls();
+      initTagDrag();
+      initTagColorChange();
+      initCareerControls();
+    }
+
+    setDirty(false);
+    showToast('버전 불러오기 완료: ' + (data.savedAt || fh.name));
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('불러오기 중 오류: ' + e.message);
+  }
+}
+
+/* ─── EDIT MODE TOGGLE ─── */
+let editMode = false;
+
+function toggleEdit() {
+  editMode = !editMode;
+  document.body.classList.toggle('edit-mode', editMode);
+  document.getElementById('edit-toolbar').style.display = editMode ? 'flex' : 'none';
+  document.getElementById('edit-toggle-btn').textContent = editMode ? '✓ 편집 완료' : '✏ 편집 모드';
+  document.getElementById('edit-toggle-btn').style.background = editMode ? '#0d6e56' : '#1a3a5c';
+
+  if (editMode) {
+    document.execCommand('styleWithCSS', false, true);
+    makeEditable();
+    initDrag();
+    initBulletControls();
+    initChipControls();
+    initTagDrag();
+    initTagColorChange();
+    initCareerControls();
+    setTimeout(initDirtyObserver, 0);
+  } else {
+    if (dirtyObserver) { dirtyObserver.disconnect(); dirtyObserver = null; }
+    setDirty(false);
+  }
+}
+
+/* ─── CONTENTEDITABLE ─── */
+const EDITABLE_SELECTORS = [
+  '.name', '.name-en', '.title-pill',
+  '.contact-block div',
+  '.positioning',
+  '.tag',
+  '.company-name', '.company-meta', '.company-sub',
+  '.phase-title', '.phase-period',
+  '.section-title',
+  '.skill-group-title', '.skill-list span',
+  '.note-box p',
+  '.outcome-chip',
+].join(',');
+
+function makeEditable() {
+  document.querySelectorAll(EDITABLE_SELECTORS).forEach(el => {
+    if (!el.hasAttribute('contenteditable')) {
+      el.setAttribute('contenteditable', 'true');
+      el.setAttribute('spellcheck', 'false');
+    }
+  });
+  document.querySelectorAll('ul.bullets li').forEach(li => {
+    const existing = li.querySelector('.li-text');
+    if (existing) {
+      existing.setAttribute('contenteditable', 'true');
+      existing.setAttribute('spellcheck', 'false');
+    } else {
+      const inner = document.createElement('span');
+      inner.className = 'li-text';
+      inner.setAttribute('contenteditable', 'true');
+      inner.setAttribute('spellcheck', 'false');
+      inner.innerHTML = li.innerHTML;
+      li.innerHTML = '';
+      li.appendChild(inner);
+    }
+  });
+}
+
+/* ─── FORMAT ─── */
+function fmtBold() { document.execCommand('bold'); }
+function fmtItalic() { document.execCommand('italic'); }
+
+const PALETTE_COLORS = [
+  { hex: '#1a1916', name: '진한' },
+  { hex: '#6b6862', name: '회색' },
+  { hex: '#b5b2ac', name: '연회색' },
+  { hex: '#1a3a5c', name: '네이비' },
+  { hex: '#0d6e56', name: '초록' },
+  { hex: '#0a5a40', name: '딥그린' },
+  { hex: '#103558', name: '딥블루' },
+  { hex: '#7a4c08', name: '앰버' },
+  { hex: '#3a2480', name: '퍼플' },
+];
+
+function openColorPalette(e) {
+  e.stopPropagation();
+  closeColorPalette();
+
+  const btn = document.getElementById('color-btn');
+  const rect = btn.getBoundingClientRect();
+
+  const popup = document.createElement('div');
+  popup.className = 'color-palette-popup';
+  popup.id = 'cpp';
+  popup.style.top = (rect.bottom + 6) + 'px';
+  popup.style.left = rect.left + 'px';
+
+  const label = document.createElement('div');
+  label.className = 'cp-label';
+  label.textContent = '텍스트 색상';
+  popup.appendChild(label);
+
+  const grid = document.createElement('div');
+  grid.className = 'cp-grid';
+  PALETTE_COLORS.forEach(({ hex, name }) => {
+    const item = document.createElement('div');
+    item.className = 'cp-swatch';
+    item.title = hex;
+    const dot = document.createElement('div');
+    dot.className = 'cp-dot';
+    dot.style.background = hex;
+    const nameEl = document.createElement('div');
+    nameEl.className = 'cp-name';
+    nameEl.textContent = name;
+    item.appendChild(dot);
+    item.appendChild(nameEl);
+    item.onclick = (ev) => {
+      ev.stopPropagation();
+      applyColor(hex);
+      closeColorPalette();
+    };
+    grid.appendChild(item);
+  });
+  popup.appendChild(grid);
+
+  const resetRow = document.createElement('div');
+  resetRow.className = 'cp-reset';
+  const resetLbl = document.createElement('span');
+  resetLbl.className = 'cp-reset-lbl';
+  resetLbl.textContent = '초기화';
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'cp-reset-btn';
+  resetBtn.textContent = '기본값';
+  resetBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    applyColor('#1a1916');
+    closeColorPalette();
+  };
+  resetRow.appendChild(resetLbl);
+  resetRow.appendChild(resetBtn);
+  popup.appendChild(resetRow);
+
+  document.body.appendChild(popup);
+  setTimeout(() => document.addEventListener('click', closeColorPalette), 0);
+}
+
+function applyColor(hex) {
+  document.execCommand('foreColor', false, hex);
+  const swatch = document.getElementById('color-swatch-cur');
+  if (swatch) swatch.style.background = hex;
+}
+
+function closeColorPalette() {
+  const el = document.getElementById('cpp');
+  if (el) el.remove();
+  document.removeEventListener('click', closeColorPalette);
+}
+
+/* ─── BULLET ADD / DELETE ─── */
+function initBulletControls() {
+  document.querySelectorAll('ul.bullets li').forEach(li => {
+    if (li.querySelector('.del-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'del-btn';
+    btn.textContent = '✕';
+    btn.title = '항목 삭제';
+    btn.onclick = () => li.remove();
+    li.appendChild(btn);
+  });
+
+  document.querySelectorAll('ul.bullets').forEach(ul => {
+    if (ul.nextElementSibling && ul.nextElementSibling.classList.contains('add-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'add-btn';
+    btn.textContent = '+ 항목 추가';
+    btn.onclick = () => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.className = 'li-text';
+      span.setAttribute('contenteditable', 'true');
+      span.setAttribute('spellcheck', 'false');
+      span.textContent = '새 항목을 입력하세요.';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'del-btn';
+      delBtn.textContent = '✕';
+      delBtn.onclick = () => li.remove();
+      li.appendChild(span);
+      li.appendChild(delBtn);
+      ul.appendChild(li);
+      span.focus();
+      selectAll(span);
+    };
+    ul.parentNode.insertBefore(btn, ul.nextSibling);
+  });
+}
+
+/* ─── CHIP ADD / DELETE ─── */
+function initChipControls() {
+  document.querySelectorAll('.outcome-chip').forEach(chip => {
+    if (chip.querySelector('.edit-chip-del')) return;
+    const x = document.createElement('span');
+    x.className = 'edit-chip-del';
+    x.textContent = '✕';
+    x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
+    chip.appendChild(x);
+  });
+
+  document.querySelectorAll('.outcome-row').forEach(row => {
+    if (row.querySelector('.add-chip-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'add-chip-btn outcome-chip';
+    btn.textContent = '+ 추가';
+    btn.onclick = () => {
+      const colorClass = guessChipClass(row);
+      const chip = document.createElement('span');
+      chip.className = 'outcome-chip ' + colorClass;
+      chip.setAttribute('contenteditable', 'true');
+      chip.textContent = '새 태그';
+      const x = document.createElement('span');
+      x.className = 'edit-chip-del';
+      x.textContent = '✕';
+      x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
+      chip.appendChild(x);
+      row.insertBefore(chip, btn);
+      chip.focus();
+      selectAll(chip);
+    };
+    row.appendChild(btn);
+  });
+}
+
+function guessChipClass(row) {
+  const existing = row.querySelector('.outcome-chip');
+  if (!existing) return 'chip-gray';
+  const classes = existing.className.split(' ');
+  return classes.find(c => c.startsWith('chip-')) || 'chip-gray';
+}
+
+function selectAll(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+/* ─── CAREER: ADD COMPANY / PHASE ─── */
+
+function createNewPhase() {
+  const phase = document.createElement('div');
+  phase.className = 'phase';
+
+  const header = document.createElement('div');
+  header.className = 'phase-header';
+
+  const title = document.createElement('span');
+  title.className = 'phase-title';
+  title.setAttribute('contenteditable', 'true');
+  title.setAttribute('spellcheck', 'false');
+  title.textContent = '담당 업무';
+
+  const period = document.createElement('span');
+  period.className = 'phase-period';
+  period.setAttribute('contenteditable', 'true');
+  period.setAttribute('spellcheck', 'false');
+  period.textContent = '0000.00 — 0000.00';
+
+  header.appendChild(title);
+  header.appendChild(period);
+  phase.appendChild(header);
+
+  const ul = document.createElement('ul');
+  ul.className = 'bullets';
+  const li = document.createElement('li');
+  const liSpan = document.createElement('span');
+  liSpan.className = 'li-text';
+  liSpan.setAttribute('contenteditable', 'true');
+  liSpan.setAttribute('spellcheck', 'false');
+  liSpan.textContent = '업무 내용을 입력하세요.';
+  li.appendChild(liSpan);
+  ul.appendChild(li);
+  phase.appendChild(ul);
+
+  const outcomeRow = document.createElement('div');
+  outcomeRow.className = 'outcome-row';
+  const chip = document.createElement('span');
+  chip.className = 'outcome-chip chip-gray';
+  chip.setAttribute('contenteditable', 'true');
+  chip.setAttribute('spellcheck', 'false');
+  chip.textContent = '성과';
+  outcomeRow.appendChild(chip);
+  phase.appendChild(outcomeRow);
+
+  return phase;
+}
+
+function createNewCompany() {
+  const company = document.createElement('div');
+  company.className = 'company';
+
+  const header = document.createElement('div');
+  header.className = 'company-header';
+
+  const name = document.createElement('div');
+  name.className = 'company-name';
+  name.setAttribute('contenteditable', 'true');
+  name.setAttribute('spellcheck', 'false');
+  name.textContent = '회사명';
+
+  const meta = document.createElement('div');
+  meta.className = 'company-meta';
+  meta.setAttribute('contenteditable', 'true');
+  meta.setAttribute('spellcheck', 'false');
+  meta.textContent = '0000.00 — 0000.00 · N년 N개월';
+
+  header.appendChild(name);
+  header.appendChild(meta);
+  company.appendChild(header);
+
+  const sub = document.createElement('div');
+  sub.className = 'company-sub';
+  sub.setAttribute('contenteditable', 'true');
+  sub.setAttribute('spellcheck', 'false');
+  sub.innerHTML = '업종 / 산업 <span class="role-badge">역할</span>';
+  company.appendChild(sub);
+
+  company.appendChild(createNewPhase());
+
+  return company;
+}
+
+function initCareerControls() {
+  const section = Array.from(document.querySelectorAll('.section'))
+    .find(s => s.querySelector(':scope > .section-title')?.textContent.trim() === '경력');
+  if (!section) return;
+
+  section.querySelectorAll('.company').forEach(company => {
+    if (company.querySelector('.add-phase-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'add-btn add-phase-btn';
+    btn.textContent = '+ Phase 추가';
+    btn.onclick = () => {
+      const phase = createNewPhase();
+      company.insertBefore(phase, btn);
+      initDrag();
+      initBulletControls();
+      initChipControls();
+      initCareerControls();
+      phase.querySelector('.phase-title').focus();
+      selectAll(phase.querySelector('.phase-title'));
+      showUndoToast('Phase 추가됨', () => phase.remove());
+    };
+    company.appendChild(btn);
+  });
+
+  if (!section.querySelector('.add-company-btn')) {
+    const btn = document.createElement('button');
+    btn.className = 'add-btn add-company-btn';
+    btn.textContent = '+ 경력 추가';
+    btn.style.marginTop = '20px';
+    btn.onclick = () => {
+      const hr = document.createElement('hr');
+      hr.className = 'divider';
+      const company = createNewCompany();
+      section.insertBefore(hr, btn);
+      section.insertBefore(company, btn);
+      initDrag();
+      initBulletControls();
+      initChipControls();
+      initCareerControls();
+      company.querySelector('.company-name').focus();
+      selectAll(company.querySelector('.company-name'));
+      showUndoToast('경력 추가됨', () => { company.remove(); hr.remove(); });
+    };
+    section.appendChild(btn);
+  }
+}
+
+/* ─── DRAG & DROP ─── */
+function initDrag() {
+  setupDraggable('.company', '.section > .company, .section > hr.divider');
+  setupDraggable('.phase', '.company .phase');
+}
+
+/* ─── TAG BAR DRAG ─── */
+let tagDragEl = null, tagDragClone = null, tagDragOffsetX = 0;
+
+function initTagDrag() {
+  document.querySelectorAll('.tag-bar .tag').forEach(tag => {
+    if (tag.dataset.dragReady) return;
+    tag.dataset.dragReady = '1';
+    tag.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      startTagDrag(tag, e);
+    });
+  });
+}
+
+function startTagDrag(el, e) {
+  tagDragEl = el;
+  el.classList.add('tag-dragging');
+  const elRect = el.getBoundingClientRect();
+  tagDragOffsetX = e.clientX - elRect.left;
+
+  tagDragClone = el.cloneNode(true);
+  tagDragClone.style.cssText = `
+    position:fixed; pointer-events:none; z-index:9999;
+    opacity:0.85; font-family:var(--mono); font-size:11px;
+    padding:4px 10px; border-radius:2px;
+    top:${elRect.top}px;
+    left:${e.clientX - tagDragOffsetX}px;
+  `;
+  document.body.appendChild(tagDragClone);
+
+  document.addEventListener('mousemove', onTagDragMove);
+  document.addEventListener('mouseup', onTagDragEnd);
+}
+
+function findTagDropTarget(e, siblings) {
+  for (const sib of siblings) {
+    const rect = sib.getBoundingClientRect();
+    const sibMidX = rect.left + rect.width / 2;
+    const sibMidY = rect.top + rect.height / 2;
+    const onSameLine = Math.abs(e.clientY - sibMidY) < rect.height;
+    if (onSameLine) {
+      if (e.clientX < rect.right) {
+        return { target: sib, insertBefore: e.clientX < sibMidX };
+      }
+    } else if (e.clientY < sibMidY) {
+      return { target: sib, insertBefore: true };
+    }
+  }
+  return { target: null, insertBefore: true };
+}
+
+function onTagDragMove(e) {
+  if (!tagDragClone) return;
+  tagDragClone.style.left = (e.clientX - tagDragOffsetX) + 'px';
+
+  const siblings = [...tagDragEl.parentNode.children].filter(c =>
+    c !== tagDragEl && c.classList.contains('tag')
+  );
+  siblings.forEach(s => s.classList.remove('drag-over-left', 'drag-over-right'));
+
+  const { target, insertBefore } = findTagDropTarget(e, siblings);
+  if (target) target.classList.add(insertBefore ? 'drag-over-left' : 'drag-over-right');
+}
+
+function onTagDragEnd(e) {
+  if (!tagDragEl) return;
+  document.removeEventListener('mousemove', onTagDragMove);
+  document.removeEventListener('mouseup', onTagDragEnd);
+  if (tagDragClone) { tagDragClone.remove(); tagDragClone = null; }
+
+  const siblings = [...tagDragEl.parentNode.children].filter(c =>
+    c !== tagDragEl && c.classList.contains('tag')
+  );
+  siblings.forEach(s => s.classList.remove('drag-over-left', 'drag-over-right'));
+
+  const { target, insertBefore } = findTagDropTarget(e, siblings);
+  if (target) {
+    if (insertBefore) tagDragEl.parentNode.insertBefore(tagDragEl, target);
+    else target.after(tagDragEl);
+  }
+  tagDragEl.classList.remove('tag-dragging');
+  tagDragEl = null;
+}
+
+function setupDraggable(selector, containerChildSelector) {
+  document.querySelectorAll(selector).forEach(el => {
+    if (el.querySelector('.drag-handle')) return;
+    const handle = document.createElement('div');
+    handle.className = 'drag-handle';
+    handle.title = '드래그하여 순서 변경';
+    handle.innerHTML = `<svg viewBox="0 0 10 14" fill="currentColor"><circle cx="3" cy="2.5" r="1.3"/><circle cx="7" cy="2.5" r="1.3"/><circle cx="3" cy="7" r="1.3"/><circle cx="7" cy="7" r="1.3"/><circle cx="3" cy="11.5" r="1.3"/><circle cx="7" cy="11.5" r="1.3"/></svg>`;
+    el.insertBefore(handle, el.firstChild);
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startDrag(el, e);
+    });
+  });
+}
+
+let dragEl = null, dragClone = null, dragOffsetY = 0;
+
+function startDrag(el, e) {
+  dragEl = el;
+  dragEl.classList.add('dragging');
+  dragOffsetY = e.clientY - el.getBoundingClientRect().top;
+
+  dragClone = el.cloneNode(true);
+  dragClone.style.cssText = `
+    position:fixed; pointer-events:none; z-index:9999;
+    width:${el.offsetWidth}px; opacity:0.85;
+    background:var(--bg); box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    border-radius:6px; padding:12px; top:${e.clientY - dragOffsetY}px; left:${el.getBoundingClientRect().left}px;
+  `;
+  document.body.appendChild(dragClone);
+
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!dragClone) return;
+  dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
+
+  const siblings = [...dragEl.parentNode.children].filter(c =>
+    c !== dragEl && !c.classList.contains('drag-clone') && c.tagName !== 'SCRIPT'
+  );
+  siblings.forEach(s => s.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+  let target = null, insertBefore = true;
+  for (const sib of siblings) {
+    const rect = sib.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < rect.bottom + 10) {
+      target = sib;
+      insertBefore = e.clientY < mid;
+      break;
+    }
+  }
+  if (target) target.classList.add(insertBefore ? 'drag-over-top' : 'drag-over-bottom');
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  if (dragClone) { dragClone.remove(); dragClone = null; }
+
+  const siblings = [...dragEl.parentNode.children].filter(c => c !== dragEl);
+  let target = null, insertBefore = true;
+  for (const sib of siblings) {
+    sib.classList.remove('drag-over-top', 'drag-over-bottom');
+    const rect = sib.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < rect.bottom + 10) {
+      target = sib;
+      insertBefore = e.clientY < mid;
+      break;
+    }
+  }
+  if (target) {
+    if (insertBefore) dragEl.parentNode.insertBefore(dragEl, target);
+    else target.after(dragEl);
+  }
+  dragEl.classList.remove('dragging');
+  dragEl = null;
+}
+
+/* ─── KEYBOARD SHORTCUTS ─── */
+document.addEventListener('keydown', (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key === 's') {
+    e.preventDefault();
+    if (editMode) saveJSON();
+  }
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (dirtyState) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+/* ─── TOAST ─── */
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#0d6e56;color:#fff;font-family:\'DM Mono\',monospace;font-size:11px;padding:8px 16px;border-radius:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);transition:opacity 0.4s;';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2500);
+}
+
+function showUndoToast(msg, undoFn) {
+  const existing = document.getElementById('undo-toast');
+  if (existing) existing.remove();
+
+  const t = document.createElement('div');
+  t.id = 'undo-toast';
+  t.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#2a2826;color:rgba(255,255,255,0.85);font-family:\'DM Mono\',monospace;font-size:11px;padding:8px 14px;border-radius:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;gap:12px;transition:opacity 0.4s;';
+
+  const label = document.createElement('span');
+  label.textContent = msg;
+
+  const btn = document.createElement('button');
+  btn.textContent = '실행취소';
+  btn.style.cssText = 'background:transparent;border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.85);font-family:\'DM Mono\',monospace;font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;';
+  btn.onmouseenter = () => { btn.style.borderColor = 'rgba(255,255,255,0.6)'; btn.style.color = '#fff'; };
+  btn.onmouseleave = () => { btn.style.borderColor = 'rgba(255,255,255,0.3)'; btn.style.color = 'rgba(255,255,255,0.85)'; };
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 400);
+  };
+
+  btn.onclick = () => { undoFn(); dismiss(); };
+
+  t.appendChild(label);
+  t.appendChild(btn);
+  document.body.appendChild(t);
+  setTimeout(dismiss, 6000);
+}
+</script>
+
+</body>
+</html>
