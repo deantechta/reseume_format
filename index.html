@@ -880,33 +880,33 @@
       <div class="section-title">보유 역량 & 도구</div>
       <div class="skill-grid">
         <div>
-          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">전문 역량</div>
+          <div class="skill-group-title" data-hint="내용을 입력하세요">전문 역량</div>
           <div class="skill-list">
-            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">핵심 강점 기술 1</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 2</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 3</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">세부 역량 또는 경험 4</span>
-            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">핵심 강점 기술 5</span>
+            <span class="highlight" data-hint="내용을 입력하세요">핵심 강점 기술 1</span>
+            <span data-hint="내용을 입력하세요">세부 역량 또는 경험 2</span>
+            <span data-hint="내용을 입력하세요">세부 역량 또는 경험 3</span>
+            <span data-hint="내용을 입력하세요">세부 역량 또는 경험 4</span>
+            <span class="highlight" data-hint="내용을 입력하세요">핵심 강점 기술 5</span>
           </div>
         </div>
         <div>
-          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">도구 & 기술</div>
+          <div class="skill-group-title" data-hint="내용을 입력하세요">도구 & 기술</div>
           <div class="skill-list">
-            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">주력 도구 / 기술 1</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 2</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 3</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 4</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">도구 / 기술 5</span>
+            <span class="highlight" data-hint="내용을 입력하세요">주력 도구 / 기술 1</span>
+            <span data-hint="내용을 입력하세요">도구 / 기술 2</span>
+            <span data-hint="내용을 입력하세요">도구 / 기술 3</span>
+            <span data-hint="내용을 입력하세요">도구 / 기술 4</span>
+            <span data-hint="내용을 입력하세요">도구 / 기술 5</span>
           </div>
         </div>
         <div>
-          <div class="skill-group-title" data-hint="역량 그룹 제목  (예: 개발 언어, 데이터 분석, 협업 도구)">기타 / 소프트 스킬</div>
+          <div class="skill-group-title" data-hint="내용을 입력하세요">기타 / 소프트 스킬</div>
           <div class="skill-list">
-            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">리더십 / PM 역량</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">커뮤니케이션 특기</span>
-            <span class="highlight" data-hint="highlight 클래스 = 강조 표시. 가장 자신 있는 역량에 사용.">협업 방식의 강점</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">언어 능력 (영어 등)</span>
-            <span data-hint="도구명 또는 기술명을 짧게  (예: Figma, SQL, Python, Notion)">기타 강점</span>
+            <span class="highlight" data-hint="내용을 입력하세요">리더십 / PM 역량</span>
+            <span data-hint="내용을 입력하세요">커뮤니케이션 특기</span>
+            <span class="highlight" data-hint="내용을 입력하세요">협업 방식의 강점</span>
+            <span data-hint="내용을 입력하세요">언어 능력 (영어 등)</span>
+            <span data-hint="내용을 입력하세요">기타 강점</span>
           </div>
         </div>
       </div>
@@ -1640,10 +1640,34 @@ function initTagDrag() {
   document.querySelectorAll('.tag-bar .tag').forEach(tag => {
     if (tag.dataset.dragReady) return;
     tag.dataset.dragReady = '1';
+    let pendingDrag = null;
+
     tag.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
-      e.preventDefault();
-      startTagDrag(tag, e);
+      const startX = e.clientX;
+      const startY = e.clientY;
+
+      const onMove = (moveEvt) => {
+        const dx = moveEvt.clientX - startX;
+        const dy = moveEvt.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 5) {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          pendingDrag = null;
+          e.preventDefault();
+          startTagDrag(tag, moveEvt);
+        }
+      };
+
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        pendingDrag = null;
+      };
+
+      pendingDrag = { onMove, onUp };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   });
 }
