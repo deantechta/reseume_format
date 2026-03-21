@@ -580,6 +580,41 @@
   .tag-color-popup .tcp-swatch:hover { border-color: rgba(255,255,255,0.5); }
   .tag-color-popup .tcp-swatch.active { border-color: #fff; }
 
+  /* ─── TAG ×버튼 / +버튼 ─── */
+  body.edit-mode .tag { padding-right: 22px; }
+  .tag-del-btn {
+    display: none;
+    position: absolute;
+    top: 50%; right: 5px;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    line-height: 14px; text-align: center;
+    font-size: 11px; font-style: normal;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    user-select: none;
+  }
+  body.edit-mode .tag-del-btn { display: block; }
+  .tag-del-btn:hover { background: rgba(220,60,60,0.7); color: #fff; }
+
+  .tag-add-btn {
+    display: none;
+    align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.5);
+    font-size: 16px; line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  body.edit-mode .tag-add-btn { display: flex; }
+  .tag-add-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
   /* ─── COLOR PALETTE POPUP ─── */
   .color-palette-popup {
     position: fixed;
@@ -759,6 +794,7 @@
     <span class="tag data" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">데이터 / 분석 역량</span>
     <span class="tag ai" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">AI / 기술 역량</span>
     <span class="tag pm" data-hint="핵심 역량 태그 — 파랑/초록/보라/주황 4가지 색상 선택 가능">프로젝트 관리</span>
+    <span class="tag-add-btn" title="태그 추가">+</span>
   </div>
 
   <!-- BODY -->
@@ -1085,10 +1121,55 @@ function initTagColorChange() {
     tag.dataset.colorReady = '1';
     tag.style.position = 'relative';
 
+    // × 삭제 버튼
+    if (!tag.querySelector('.tag-del-btn')) {
+      const del = document.createElement('span');
+      del.className = 'tag-del-btn';
+      del.textContent = '×';
+      del.title = '태그 삭제';
+      del.addEventListener('mousedown', (e) => e.stopPropagation());
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTagColorPopup();
+        tag.remove();
+      });
+      tag.appendChild(del);
+    }
+
     tag.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       openTagColorPopup(tag);
     });
+  });
+}
+
+function initTagAddBtn() {
+  const bar = document.querySelector('.tag-bar');
+  if (!bar) return;
+  const btn = bar.querySelector('.tag-add-btn');
+  if (!btn || btn.dataset.addReady) return;
+  btn.dataset.addReady = '1';
+  btn.addEventListener('click', () => {
+    const tag = document.createElement('span');
+    tag.className = 'tag rec';
+    tag.dataset.hint = '핵심 역량 태그 — 우클릭으로 색상 변경, 드래그로 순서 변경';
+    tag.textContent = '새 태그';
+    tag.style.position = 'relative';
+    // + 버튼 바로 앞에 삽입
+    bar.insertBefore(tag, btn);
+    // 초기화
+    tag.dataset.colorReady = '';
+    tag.dataset.dragReady = '';
+    initTagColorChange();
+    initTagDrag();
+    // 바로 편집 가능하면 포커스
+    if (tag.contentEditable === 'true') {
+      tag.focus();
+      const range = document.createRange();
+      range.selectNodeContents(tag);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
   });
 }
 
@@ -1135,7 +1216,7 @@ function getCleanHTMLString(snapshotDate) {
     '#edit-toolbar', '#edit-toggle-btn', '.edit-toolbar',
     '.add-btn', '.del-btn', '.add-chip-btn', '.edit-chip-del', '.drag-handle',
     '.add-phase-btn', '.add-company-btn',
-    '#autosave-banner', '#cpp', '#tcp',
+    '#autosave-banner', '#cpp', '#tcp', '.tag-del-btn', '.tag-add-btn',
   ];
   editSelectors.forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
 
@@ -1243,6 +1324,7 @@ async function loadJSON() {
       initChipControls();
       initTagDrag();
       initTagColorChange();
+      initTagAddBtn();
       initCareerControls();
     }
 
