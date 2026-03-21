@@ -15,7 +15,9 @@
     .page { box-shadow: none; max-width: 100%; border-radius: 0; }
     .no-print { display: none !important; }
     [contenteditable] { outline: none !important; border: none !important; }
-    .drag-handle, .add-btn, .del-btn, .edit-chip-del { display: none !important; }
+    .drag-handle, .add-btn, .del-btn, .edit-chip-del,
+    .block-del-btn, .skill-item-del, .skill-group-del,
+    .contact-del-btn, .note-del-btn { display: none !important; }
   }
 
   :root {
@@ -614,6 +616,85 @@
   }
   body.edit-mode .tag-add-btn { display: flex; }
   .tag-add-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+  /* ─── COMPANY / PHASE DELETE BUTTON ─── */
+  .block-del-btn {
+    display: none;
+    position: absolute;
+    top: 8px; right: 0;
+    padding: 1px 7px;
+    font-family: var(--mono); font-size: 10px; line-height: 1.6;
+    border: 1px solid rgba(180,40,40,0.25);
+    border-radius: 3px;
+    background: rgba(180,40,40,0.07);
+    color: rgba(180,40,40,0.55);
+    cursor: pointer;
+  }
+  .block-del-btn:hover { background: rgba(180,40,40,0.22); color: #b43030; border-color: rgba(180,40,40,0.5); }
+  body.edit-mode .block-del-btn { display: block; }
+
+  /* ─── SKILL ITEM INLINE DELETE ─── */
+  .skill-item-del {
+    display: none;
+    cursor: pointer;
+    font-size: 8px;
+    margin-left: 3px;
+    opacity: 0.45;
+    color: #b43030;
+    vertical-align: middle;
+    line-height: 1;
+    contenteditable: false;
+  }
+  .skill-item-del:hover { opacity: 1; }
+  body.edit-mode .skill-item-del { display: inline; }
+
+  /* ─── SKILL GROUP DELETE ─── */
+  .skill-group-del {
+    display: none;
+    float: right;
+    cursor: pointer;
+    font-size: 9px;
+    opacity: 0.4;
+    color: #b43030;
+    line-height: 1.8;
+    margin-left: 6px;
+  }
+  .skill-group-del:hover { opacity: 1; }
+  body.edit-mode .skill-group-del { display: inline; }
+
+  /* ─── CONTACT ITEM DELETE ─── */
+  .contact-del-btn {
+    display: none;
+    cursor: pointer;
+    font-size: 9px;
+    margin-left: 5px;
+    opacity: 0.4;
+    color: rgba(255,255,255,0.8);
+    vertical-align: middle;
+  }
+  .contact-del-btn:hover { opacity: 1; }
+  body.edit-mode .contact-del-btn { display: inline; }
+
+  /* contact-block add-btn override for dark bg */
+  .contact-block .add-btn {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.55);
+  }
+  .contact-block .add-btn:hover { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.9); }
+
+  /* ─── NOTE PARAGRAPH DELETE ─── */
+  .note-del-btn {
+    display: none;
+    cursor: pointer;
+    font-size: 9px;
+    margin-left: 6px;
+    opacity: 0.4;
+    color: #b43030;
+    vertical-align: middle;
+  }
+  .note-del-btn:hover { opacity: 1; }
+  body.edit-mode .note-del-btn { display: inline; }
 
   /* ─── COLOR PALETTE POPUP ─── */
   .color-palette-popup {
@@ -1217,6 +1298,9 @@ function getCleanHTMLString(snapshotDate) {
     '.add-btn', '.del-btn', '.add-chip-btn', '.edit-chip-del', '.drag-handle',
     '.add-phase-btn', '.add-company-btn',
     '#autosave-banner', '#cpp', '#tcp', '.tag-del-btn', '.tag-add-btn',
+    '.block-del-btn', '.skill-item-del', '.skill-group-del',
+    '.contact-del-btn', '.contact-add-btn', '.note-del-btn', '.note-add-btn',
+    '.skill-add-item-btn', '.skill-add-group-btn',
   ];
   editSelectors.forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
 
@@ -1326,6 +1410,9 @@ async function loadJSON() {
       initTagColorChange();
       initTagAddBtn();
       initCareerControls();
+      initSkillControls();
+      initContactControls();
+      initNoteControls();
     }
 
     setDirty(false);
@@ -1353,7 +1440,11 @@ function toggleEdit() {
     initChipControls();
     initTagDrag();
     initTagColorChange();
+    initTagAddBtn();
     initCareerControls();
+    initSkillControls();
+    initContactControls();
+    initNoteControls();
     setTimeout(initDirtyObserver, 0);
   } else {
     if (dirtyObserver) { dirtyObserver.disconnect(); dirtyObserver = null; }
@@ -1668,22 +1759,66 @@ function initCareerControls() {
   if (!section) return;
 
   section.querySelectorAll('.company').forEach(company => {
-    if (company.querySelector('.add-phase-btn')) return;
-    const btn = document.createElement('button');
-    btn.className = 'add-btn add-phase-btn';
-    btn.textContent = '+ Phase 추가';
-    btn.onclick = () => {
-      const phase = createNewPhase();
-      company.insertBefore(phase, btn);
-      initDrag();
-      initBulletControls();
-      initChipControls();
-      initCareerControls();
-      phase.querySelector('.phase-title').focus();
-      selectAll(phase.querySelector('.phase-title'));
-      showUndoToast('Phase 추가됨', () => phase.remove());
-    };
-    company.appendChild(btn);
+    // Phase 삭제 버튼
+    company.querySelectorAll('.phase').forEach(phase => {
+      if (!phase.querySelector('.phase-del-btn')) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'block-del-btn phase-del-btn';
+        delBtn.textContent = '✕ Phase';
+        delBtn.title = 'Phase 삭제';
+        delBtn.onclick = () => {
+          const parent = phase.parentNode;
+          const next = phase.nextSibling;
+          showUndoToast('Phase 삭제됨', () => parent.insertBefore(phase, next));
+          phase.remove();
+        };
+        phase.appendChild(delBtn);
+      }
+    });
+
+    // 회사 삭제 버튼
+    if (!company.querySelector('.company-del-btn')) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'block-del-btn company-del-btn';
+      delBtn.textContent = '✕ 경력';
+      delBtn.title = '이 경력 블록 삭제';
+      delBtn.onclick = () => {
+        const parent = company.parentNode;
+        const next = company.nextSibling;
+        const hr = company.previousElementSibling?.classList.contains('divider')
+          ? company.previousElementSibling
+          : company.nextElementSibling?.classList.contains('divider')
+            ? company.nextElementSibling
+            : null;
+        const hrNext = hr ? hr.nextSibling : null;
+        showUndoToast('경력 삭제됨', () => {
+          if (hr) parent.insertBefore(hr, hrNext);
+          parent.insertBefore(company, next);
+        });
+        if (hr) hr.remove();
+        company.remove();
+      };
+      company.appendChild(delBtn);
+    }
+
+    // Phase 추가 버튼
+    if (!company.querySelector('.add-phase-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'add-btn add-phase-btn';
+      btn.textContent = '+ Phase 추가';
+      btn.onclick = () => {
+        const phase = createNewPhase();
+        company.insertBefore(phase, btn);
+        initDrag();
+        initBulletControls();
+        initChipControls();
+        initCareerControls();
+        phase.querySelector('.phase-title').focus();
+        selectAll(phase.querySelector('.phase-title'));
+        showUndoToast('Phase 추가됨', () => phase.remove());
+      };
+      company.appendChild(btn);
+    }
   });
 
   if (!section.querySelector('.add-company-btn')) {
@@ -1706,6 +1841,202 @@ function initCareerControls() {
       showUndoToast('경력 추가됨', () => { company.remove(); hr.remove(); });
     };
     section.appendChild(btn);
+  }
+}
+
+/* ─── SKILL CONTROLS ─── */
+function initSkillControls() {
+  // 개별 스킬 항목 ×
+  document.querySelectorAll('.skill-list span').forEach(span => {
+    if (span.querySelector('.skill-item-del')) return;
+    const x = document.createElement('span');
+    x.className = 'skill-item-del';
+    x.setAttribute('contenteditable', 'false');
+    x.textContent = '✕';
+    x.title = '항목 삭제';
+    x.addEventListener('mousedown', e => e.stopPropagation());
+    x.addEventListener('click', e => { e.stopPropagation(); span.remove(); });
+    span.appendChild(x);
+  });
+
+  // 스킬 목록 + 항목 추가 버튼
+  document.querySelectorAll('.skill-list').forEach(list => {
+    if (list.nextElementSibling?.classList.contains('skill-add-item-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'add-btn skill-add-item-btn';
+    btn.textContent = '+ 항목 추가';
+    btn.onclick = () => {
+      const span = document.createElement('span');
+      span.setAttribute('contenteditable', 'true');
+      span.setAttribute('spellcheck', 'false');
+      span.textContent = '새 항목';
+      const x = document.createElement('span');
+      x.className = 'skill-item-del';
+      x.setAttribute('contenteditable', 'false');
+      x.textContent = '✕';
+      x.addEventListener('mousedown', e => e.stopPropagation());
+      x.addEventListener('click', e => { e.stopPropagation(); span.remove(); });
+      span.appendChild(x);
+      list.appendChild(span);
+      span.focus();
+      selectAll(span);
+    };
+    list.after(btn);
+  });
+
+  // 스킬 그룹 × 버튼
+  document.querySelectorAll('.skill-grid > div').forEach(group => {
+    const title = group.querySelector('.skill-group-title');
+    if (!title || title.querySelector('.skill-group-del')) return;
+    const x = document.createElement('span');
+    x.className = 'skill-group-del';
+    x.setAttribute('contenteditable', 'false');
+    x.textContent = '✕';
+    x.title = '그룹 삭제';
+    x.addEventListener('mousedown', e => e.stopPropagation());
+    x.addEventListener('click', e => {
+      e.stopPropagation();
+      const addBtn = group.querySelector('.skill-add-item-btn');
+      if (addBtn) addBtn.remove();
+      const parent = group.parentNode;
+      const next = group.nextSibling;
+      showUndoToast('그룹 삭제됨', () => parent.insertBefore(group, next));
+      group.remove();
+    });
+    title.insertBefore(x, title.firstChild);
+  });
+
+  // 스킬 섹션 + 그룹 추가 버튼
+  const skillSection = Array.from(document.querySelectorAll('.section'))
+    .find(s => s.querySelector(':scope > .section-title')?.textContent.includes('보유 역량'));
+  if (!skillSection) return;
+  const grid = skillSection.querySelector('.skill-grid');
+  if (!grid) return;
+  if (grid.nextElementSibling?.classList.contains('skill-add-group-btn')) return;
+  const addGroupBtn = document.createElement('button');
+  addGroupBtn.className = 'add-btn skill-add-group-btn';
+  addGroupBtn.textContent = '+ 그룹 추가';
+  addGroupBtn.style.marginTop = '10px';
+  addGroupBtn.onclick = () => {
+    const div = document.createElement('div');
+    const titleEl = document.createElement('div');
+    titleEl.className = 'skill-group-title';
+    titleEl.setAttribute('contenteditable', 'true');
+    titleEl.setAttribute('spellcheck', 'false');
+    titleEl.textContent = '새 그룹';
+    const list = document.createElement('div');
+    list.className = 'skill-list';
+    const span = document.createElement('span');
+    span.setAttribute('contenteditable', 'true');
+    span.setAttribute('spellcheck', 'false');
+    span.textContent = '항목을 입력하세요';
+    list.appendChild(span);
+    div.appendChild(titleEl);
+    div.appendChild(list);
+    grid.appendChild(div);
+    initSkillControls();
+    titleEl.focus();
+    selectAll(titleEl);
+    showUndoToast('그룹 추가됨', () => div.remove());
+  };
+  grid.after(addGroupBtn);
+}
+
+/* ─── CONTACT CONTROLS ─── */
+function initContactControls() {
+  const block = document.querySelector('.contact-block');
+  if (!block) return;
+
+  block.querySelectorAll('div').forEach(div => {
+    if (div.querySelector('.contact-del-btn')) return;
+    const x = document.createElement('span');
+    x.className = 'contact-del-btn';
+    x.setAttribute('contenteditable', 'false');
+    x.textContent = '✕';
+    x.title = '항목 삭제';
+    x.addEventListener('mousedown', e => e.stopPropagation());
+    x.addEventListener('click', e => {
+      e.stopPropagation();
+      const parent = div.parentNode;
+      const next = div.nextSibling;
+      showUndoToast('항목 삭제됨', () => parent.insertBefore(div, next));
+      div.remove();
+    });
+    div.appendChild(x);
+  });
+
+  if (!block.querySelector('.contact-add-btn')) {
+    const btn = document.createElement('button');
+    btn.className = 'add-btn contact-add-btn';
+    btn.textContent = '+ 항목 추가';
+    btn.onclick = () => {
+      const div = document.createElement('div');
+      div.setAttribute('contenteditable', 'true');
+      div.setAttribute('spellcheck', 'false');
+      div.textContent = '새 항목';
+      const x = document.createElement('span');
+      x.className = 'contact-del-btn';
+      x.setAttribute('contenteditable', 'false');
+      x.textContent = '✕';
+      x.addEventListener('mousedown', e => e.stopPropagation());
+      x.addEventListener('click', e => { e.stopPropagation(); div.remove(); });
+      div.appendChild(x);
+      block.insertBefore(div, btn);
+      div.focus();
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, div.firstChild.length);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    };
+    block.appendChild(btn);
+  }
+}
+
+/* ─── NOTE CONTROLS ─── */
+function initNoteControls() {
+  const noteBox = document.querySelector('.note-box');
+  if (!noteBox) return;
+
+  noteBox.querySelectorAll('p').forEach(p => {
+    if (p.querySelector('.note-del-btn')) return;
+    const x = document.createElement('span');
+    x.className = 'note-del-btn';
+    x.setAttribute('contenteditable', 'false');
+    x.textContent = '✕';
+    x.title = '문단 삭제';
+    x.addEventListener('mousedown', e => e.stopPropagation());
+    x.addEventListener('click', e => {
+      e.stopPropagation();
+      const parent = p.parentNode;
+      const next = p.nextSibling;
+      showUndoToast('문단 삭제됨', () => parent.insertBefore(p, next));
+      p.remove();
+    });
+    p.appendChild(x);
+  });
+
+  if (!noteBox.nextElementSibling?.classList.contains('note-add-btn')) {
+    const btn = document.createElement('button');
+    btn.className = 'add-btn note-add-btn';
+    btn.textContent = '+ 문단 추가';
+    btn.onclick = () => {
+      const p = document.createElement('p');
+      p.setAttribute('contenteditable', 'true');
+      p.setAttribute('spellcheck', 'false');
+      p.textContent = '업무 스타일을 입력하세요.';
+      const x = document.createElement('span');
+      x.className = 'note-del-btn';
+      x.setAttribute('contenteditable', 'false');
+      x.textContent = '✕';
+      x.addEventListener('mousedown', e => e.stopPropagation());
+      x.addEventListener('click', e => { e.stopPropagation(); p.remove(); });
+      p.appendChild(x);
+      noteBox.appendChild(p);
+      p.focus();
+      selectAll(p);
+    };
+    noteBox.after(btn);
   }
 }
 
