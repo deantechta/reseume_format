@@ -202,6 +202,7 @@
     font-size: 9px;
     opacity: 0.6;
     vertical-align: middle;
+    user-select: none;
   }
   .edit-chip-del:hover { opacity: 1; }
   body.edit-mode .edit-chip-del { display: inline; }
@@ -1161,6 +1162,8 @@ function initTagColorChange() {
       del.className = 'tag-del-btn';
       del.textContent = '×';
       del.title = '태그 삭제';
+      // Fix 3: contenteditable 내부에서 텍스트로 인식되지 않도록
+      del.setAttribute('contenteditable', 'false');
       del.addEventListener('mousedown', (e) => e.stopPropagation());
       del.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1199,12 +1202,9 @@ function initTagAddBtn() {
     tag.dataset.dragReady = '';
     initTagColorChange();
     initTagDrag();
-    // 포커스 및 전체 선택
+    // Fix 3: 포커스 후 × 버튼 제외하고 텍스트만 선택
     tag.focus();
-    const range = document.createRange();
-    range.selectNodeContents(tag);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
+    selectTextOnly(tag);
   });
 }
 
@@ -1405,6 +1405,11 @@ function toggleEdit() {
     });
     setTimeout(initDirtyObserver, 0);
   } else {
+    // Fix 1: 편집 종료 시 모든 contenteditable="true" 제거 → 뷰 모드에서 편집 불가
+    document.querySelectorAll('.page [contenteditable="true"]').forEach(el => {
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('spellcheck');
+    });
     if (dirtyObserver) { dirtyObserver.disconnect(); dirtyObserver = null; }
     setDirty(false);
   }
@@ -1616,6 +1621,8 @@ function initChipControls() {
     const x = document.createElement('span');
     x.className = 'edit-chip-del';
     x.textContent = '✕';
+    // Fix 3: contenteditable 내부에서 텍스트로 인식되지 않도록
+    x.setAttribute('contenteditable', 'false');
     x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
     chip.appendChild(x);
   });
@@ -1634,12 +1641,14 @@ function initChipControls() {
       const x = document.createElement('span');
       x.className = 'edit-chip-del';
       x.textContent = '✕';
+      // Fix 3: contenteditable 내부에서 텍스트로 인식되지 않도록
+      x.setAttribute('contenteditable', 'false');
       x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
       chip.appendChild(x);
       row.insertBefore(chip, btn);
       initChipDrag(); // Fix 5: 새로 추가된 칩에도 드래그 적용
       chip.focus();
-      selectAll(chip);
+      selectTextOnly(chip); // Fix 3: × 버튼 제외하고 텍스트만 선택
     };
     row.appendChild(btn);
   });
@@ -1655,6 +1664,17 @@ function guessChipClass(row) {
 function selectAll(el) {
   const range = document.createRange();
   range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// Fix 3: × 삭제 버튼을 제외하고 텍스트 노드만 선택 (신규 요소 생성 시 사용)
+function selectTextOnly(el) {
+  const textNode = [...el.childNodes].find(n => n.nodeType === Node.TEXT_NODE);
+  if (!textNode) { selectAll(el); return; }
+  const range = document.createRange();
+  range.selectNodeContents(textNode);
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
