@@ -84,6 +84,7 @@
     white-space: nowrap;
   }
   .tb-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .tb-btn[disabled] { opacity: 0.35; cursor: default; pointer-events: none; }
   .tb-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
   .tb-btn.danger { background: rgba(180,40,40,0.25); border-color: rgba(200,60,60,0.4); color: #f9a0a0; }
   .tb-btn.danger:hover { background: rgba(180,40,40,0.45); }
@@ -1082,6 +1083,9 @@
     <span style="color:rgba(255,255,255,0.4);vertical-align:middle;font-size:8px;">▾</span>
   </button>
   <div class="tb-sep"></div>
+  <button class="tb-btn" id="undo-btn" onclick="performUndo()" title="되돌리기 (Ctrl+Z)" disabled>↩</button>
+  <button class="tb-btn" id="redo-btn" onclick="performRedo()" title="다시실행 (Ctrl+Shift+Z)" disabled>↪</button>
+  <div class="tb-sep"></div>
   <span class="edit-hint">텍스트 클릭 후 수정 · 항목 드래그로 순서 변경</span>
   <span id="dirty-indicator">● 변경됨</span>
   <div class="tb-sep"></div>
@@ -1126,6 +1130,118 @@ function setDirty(val) {
   const el = document.getElementById('dirty-indicator');
   if (el) el.style.display = val ? 'inline' : 'none';
 }
+
+/* ─── UNDO / REDO SYSTEM ─── */
+const MAX_UNDO = 30;
+let undoHistory = [];
+let undoIndex = -1;
+let undoPaused = false;
+
+// 편집 UI 를 제외한 순수 콘텐츠 스냅샷 생성
+function getPageContentSnapshot() {
+  const clone = document.querySelector('.page').cloneNode(true);
+  const editEls = [
+    '.add-btn', '.del-btn', '.add-chip-btn', '.edit-chip-del', '.drag-handle',
+    '.add-phase-btn', '.add-company-btn',
+    '#cpp', '#tcp', '.tag-del-btn', '.tag-add-btn',
+    '.block-del-btn', '.skill-item-del', '.skill-group-del',
+    '.contact-del-btn', '.contact-add-btn', '.note-del-btn', '.note-add-btn',
+    '.skill-add-item-btn', '.skill-add-group-btn',
+  ];
+  clone.querySelectorAll(editEls.join(',')).forEach(el => el.remove());
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  clone.querySelectorAll('[spellcheck]').forEach(el => el.removeAttribute('spellcheck'));
+  ['data-color-ready','data-drag-ready','data-add-ready','data-chip-drag-ready']
+    .forEach(attr => clone.querySelectorAll('[' + attr + ']').forEach(el => el.removeAttribute(attr)));
+  return clone.innerHTML;
+}
+
+function saveSnapshot() {
+  if (undoPaused) return;
+  const snapshot = getPageContentSnapshot();
+  // 미래 히스토리(redo) 제거
+  undoHistory = undoHistory.slice(0, undoIndex + 1);
+  // 동일한 스냅샷이면 건너뜀
+  if (undoHistory.length > 0 && undoHistory[undoHistory.length - 1] === snapshot) return;
+  undoHistory.push(snapshot);
+  if (undoHistory.length > MAX_UNDO) undoHistory.shift();
+  undoIndex = undoHistory.length - 1;
+  updateUndoButtons();
+}
+
+function performUndo() {
+  if (undoIndex < 0) return;
+  // 현재 상태가 마지막 스냅샷과 다르면 먼저 저장 (redo 복귀용)
+  const current = getPageContentSnapshot();
+  if (current !== undoHistory[undoIndex]) {
+    undoHistory = undoHistory.slice(0, undoIndex + 1);
+    undoHistory.push(current);
+    if (undoHistory.length > MAX_UNDO) undoHistory.shift();
+    undoIndex = undoHistory.length - 1;
+  }
+  if (undoIndex <= 0) return;
+  undoIndex--;
+  restoreSnapshot(undoHistory[undoIndex]);
+  showToast('되돌리기 완료');
+}
+
+function performRedo() {
+  if (undoIndex >= undoHistory.length - 1) return;
+  undoIndex++;
+  restoreSnapshot(undoHistory[undoIndex]);
+  showToast('다시실행 완료');
+}
+
+function restoreSnapshot(snapshot) {
+  undoPaused = true;
+  document.querySelector('.page').innerHTML = snapshot;
+  reinitEditControls();
+  undoPaused = false;
+  updateUndoButtons();
+}
+
+function reinitEditControls() {
+  document.execCommand('styleWithCSS', false, true);
+  makeEditable();
+  initDrag();
+  initBulletControls();
+  initChipControls();
+  initChipDrag();
+  initTagDrag();
+  initTagColorChange();
+  initTagAddBtn();
+  initCareerControls();
+  initSkillControls();
+  initContactControls();
+  initNoteControls();
+}
+
+function updateUndoButtons() {
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.disabled = (undoIndex <= 0);
+  if (redoBtn) redoBtn.disabled = (undoIndex >= undoHistory.length - 1);
+}
+
+function initUndoSystem() {
+  undoHistory = [getPageContentSnapshot()];
+  undoIndex = 0;
+  updateUndoButtons();
+}
+
+// 이벤트 위임: 구조 변경 버튼 클릭 직전에 스냅샷 저장 (capture phase)
+document.querySelector('.page').addEventListener('click', (e) => {
+  if (!editMode) return;
+  const btn = e.target.closest(
+    '.del-btn, .add-btn, .tag-del-btn, .edit-chip-del, ' +
+    '.block-del-btn, .add-chip-btn, .tag-add-btn, ' +
+    '.skill-item-del, .skill-group-del, .contact-del-btn, ' +
+    '.note-del-btn, .add-phase-btn, .add-company-btn, ' +
+    '.skill-add-item-btn, .skill-add-group-btn, ' +
+    '.note-add-btn, .contact-add-btn, .tcp-swatch'
+  );
+  if (btn) saveSnapshot();
+}, true);
 
 const JSON_VERSION = '1.0';
 
@@ -1359,6 +1475,7 @@ async function loadJSON() {
       initDrag();
       initBulletControls();
       initChipControls();
+      initChipDrag();
       initTagDrag();
       initTagColorChange();
       initTagAddBtn();
@@ -1366,6 +1483,7 @@ async function loadJSON() {
       initSkillControls();
       initContactControls();
       initNoteControls();
+      initUndoSystem(); // undo 히스토리 리셋
     }
 
     setDirty(false);
@@ -1403,13 +1521,16 @@ function toggleEdit() {
     document.querySelectorAll('.edit-toolbar .tb-btn').forEach(btn => {
       btn.addEventListener('mousedown', e => e.preventDefault());
     });
+    initUndoSystem();
     setTimeout(initDirtyObserver, 0);
   } else {
-    // Fix 1: 편집 종료 시 모든 contenteditable="true" 제거 → 뷰 모드에서 편집 불가
+    // 편집 종료: contenteditable 제거, undo 히스토리 해제
     document.querySelectorAll('.page [contenteditable="true"]').forEach(el => {
       el.removeAttribute('contenteditable');
       el.removeAttribute('spellcheck');
     });
+    undoHistory = [];
+    undoIndex = -1;
     if (dirtyObserver) { dirtyObserver.disconnect(); dirtyObserver = null; }
     setDirty(false);
   }
@@ -2127,6 +2248,7 @@ function onChipDragEnd(e) {
 
   const { target, insertBefore } = findTagDropTarget(e, siblings);
   if (target) {
+    saveSnapshot(); // undo 스냅샷 (드래그 전 상태)
     if (insertBefore) chipDragEl.parentNode.insertBefore(chipDragEl, target);
     else target.after(chipDragEl);
   }
@@ -2242,6 +2364,7 @@ function onTagDragEnd(e) {
 
   const { target, insertBefore } = findTagDropTarget(e, siblings);
   if (target) {
+    saveSnapshot(); // undo 스냅샷 (드래그 전 상태)
     if (insertBefore) tagDragEl.parentNode.insertBefore(tagDragEl, target);
     else target.after(tagDragEl);
   }
@@ -2325,6 +2448,7 @@ function onDragEnd(e) {
     }
   }
   if (target) {
+    saveSnapshot(); // undo 스냅샷 (드래그 전 상태)
     if (insertBefore) dragEl.parentNode.insertBefore(dragEl, target);
     else target.after(dragEl);
   }
@@ -2398,6 +2522,20 @@ document.addEventListener('keydown', (e) => {
   if (mod && e.key === 's') {
     e.preventDefault();
     if (editMode) saveJSON();
+  }
+  // Ctrl+Z: contenteditable 바깥이면 구조 undo, 안이면 브라우저 텍스트 undo 유지
+  if (mod && e.key === 'z' && !e.shiftKey && editMode) {
+    const active = document.activeElement;
+    const inEditable = active && active.closest && active.closest('[contenteditable="true"]');
+    if (!inEditable) {
+      e.preventDefault();
+      performUndo();
+    }
+  }
+  // Ctrl+Shift+Z: 다시실행
+  if (mod && e.key === 'z' && e.shiftKey && editMode) {
+    e.preventDefault();
+    performRedo();
   }
 });
 
