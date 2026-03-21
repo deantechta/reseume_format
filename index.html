@@ -152,6 +152,13 @@
   .tag.drag-over-left  { box-shadow: -3px 0 0 0 var(--accent2); }
   .tag.drag-over-right { box-shadow:  3px 0 0 0 var(--accent2); }
 
+  /* outcome chip drag */
+  body.edit-mode .outcome-chip:not(.add-chip-btn) { cursor: grab; }
+  body.edit-mode .outcome-chip:not(.add-chip-btn):active { cursor: grabbing; }
+  .outcome-chip.chip-dragging { opacity: 0.4; }
+  .outcome-chip.chip-drag-over-left  { box-shadow: -3px 0 0 0 var(--accent2); }
+  .outcome-chip.chip-drag-over-right { box-shadow:  3px 0 0 0 var(--accent2); }
+
   /* add / delete inline buttons */
   .add-btn, .del-btn {
     display: none;
@@ -294,6 +301,9 @@
     font-family: var(--mono);
   }
   .contact-block a { color: #c0cfdf; text-decoration: none; }
+  /* 본문 자동 링크 */
+  .body a { color: var(--accent2); text-decoration: underline; cursor: pointer; }
+  .body a:hover { color: #0a5a40; }
 
   .positioning {
     margin-top: 28px;
@@ -566,7 +576,7 @@
   }
   .tag-color-popup {
     position: absolute;
-    top: calc(100% + 6px); left: 0;
+    bottom: calc(100% + 6px); left: 0;
     background: #1a1916;
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 6px;
@@ -636,6 +646,9 @@
   }
   .block-del-btn:hover { background: rgba(180,40,40,0.22); color: #b43030; border-color: rgba(180,40,40,0.5); }
   body.edit-mode .block-del-btn { display: block; }
+  /* Fix 6: 삭제 버튼이 텍스트와 겹치지 않도록 헤더 우측에 여백 추가 */
+  body.edit-mode .company-header { padding-right: 74px; }
+  body.edit-mode .phase-header { padding-right: 74px; }
 
   /* ─── SKILL ITEM INLINE DELETE ─── */
   .skill-item-del {
@@ -1176,6 +1189,9 @@ function initTagAddBtn() {
     tag.dataset.hint = '핵심 역량 태그 — 우클릭으로 색상 변경, 드래그로 순서 변경';
     tag.textContent = '새 태그';
     tag.style.position = 'relative';
+    // Fix 1: 새 태그도 즉시 편집 가능하도록 contenteditable 설정
+    tag.setAttribute('contenteditable', 'true');
+    tag.setAttribute('spellcheck', 'false');
     // + 버튼 바로 앞에 삽입
     bar.insertBefore(tag, btn);
     // 초기화
@@ -1183,14 +1199,12 @@ function initTagAddBtn() {
     tag.dataset.dragReady = '';
     initTagColorChange();
     initTagDrag();
-    // 바로 편집 가능하면 포커스
-    if (tag.contentEditable === 'true') {
-      tag.focus();
-      const range = document.createRange();
-      range.selectNodeContents(tag);
-      window.getSelection().removeAllRanges();
-      window.getSelection().addRange(range);
-    }
+    // 포커스 및 전체 선택
+    tag.focus();
+    const range = document.createRange();
+    range.selectNodeContents(tag);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
   });
 }
 
@@ -1377,6 +1391,7 @@ function toggleEdit() {
     initDrag();
     initBulletControls();
     initChipControls();
+    initChipDrag();
     initTagDrag();
     initTagColorChange();
     initTagAddBtn();
@@ -1384,6 +1399,10 @@ function toggleEdit() {
     initSkillControls();
     initContactControls();
     initNoteControls();
+    // Fix 3: 툴바 버튼 mousedown 시 포커스 이동(선택 영역 소실) 방지
+    document.querySelectorAll('.edit-toolbar .tb-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.preventDefault());
+    });
     setTimeout(initDirtyObserver, 0);
   } else {
     if (dirtyObserver) { dirtyObserver.disconnect(); dirtyObserver = null; }
@@ -1430,8 +1449,36 @@ function makeEditable() {
 }
 
 /* ─── FORMAT ─── */
-function fmtBold() { document.execCommand('bold'); }
-function fmtItalic() { document.execCommand('italic'); }
+// Fix 3: 툴바 클릭 시 선택 영역이 사라지는 문제 해결을 위한 선택 영역 저장
+let savedRange = null;
+
+document.addEventListener('selectionchange', () => {
+  if (!editMode) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  // 선택 영역이 contenteditable 내부에 있을 때만 저장
+  let node = range.commonAncestorContainer;
+  while (node && node !== document.body) {
+    if (node.getAttribute && node.getAttribute('contenteditable') === 'true') {
+      savedRange = range.cloneRange();
+      return;
+    }
+    node = node.parentNode;
+  }
+});
+
+function restoreSavedRange() {
+  if (!savedRange) return;
+  try {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+  } catch (e) {}
+}
+
+function fmtBold() { restoreSavedRange(); document.execCommand('bold'); }
+function fmtItalic() { restoreSavedRange(); document.execCommand('italic'); }
 
 const PALETTE_COLORS = [
   { hex: '#1a1916', name: '진한' },
@@ -1508,9 +1555,14 @@ function openColorPalette(e) {
 }
 
 function applyColor(hex) {
+  // Fix 3: 선택 영역 복원 후 색상 적용
+  restoreSavedRange();
   document.execCommand('foreColor', false, hex);
   const swatch = document.getElementById('color-swatch-cur');
   if (swatch) swatch.style.background = hex;
+  // 이후 입력할 텍스트도 같은 색으로 유지되도록 savedRange 갱신
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0).cloneRange();
 }
 
 function closeColorPalette() {
@@ -1585,6 +1637,7 @@ function initChipControls() {
       x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
       chip.appendChild(x);
       row.insertBefore(chip, btn);
+      initChipDrag(); // Fix 5: 새로 추가된 칩에도 드래그 적용
       chip.focus();
       selectAll(chip);
     };
@@ -1979,6 +2032,88 @@ function initNoteControls() {
   }
 }
 
+/* ─── OUTCOME CHIP DRAG ─── */
+// Fix 5: 성과 칩 드래그 순서 변경
+let chipDragEl = null, chipDragClone = null, chipDragOffsetX = 0;
+
+function initChipDrag() {
+  document.querySelectorAll('.outcome-row .outcome-chip:not(.add-chip-btn)').forEach(chip => {
+    if (chip.dataset.chipDragReady) return;
+    chip.dataset.chipDragReady = '1';
+
+    chip.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const startX = e.clientX, startY = e.clientY;
+      const onMove = (moveEvt) => {
+        const dx = moveEvt.clientX - startX, dy = moveEvt.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 5) {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          e.preventDefault();
+          startChipDrag(chip, moveEvt);
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+function startChipDrag(el, e) {
+  chipDragEl = el;
+  el.classList.add('chip-dragging');
+  const elRect = el.getBoundingClientRect();
+  chipDragOffsetX = e.clientX - elRect.left;
+
+  chipDragClone = el.cloneNode(true);
+  chipDragClone.style.cssText = `
+    position:fixed; pointer-events:none; z-index:9999;
+    opacity:0.85; font-size:11.5px; font-weight:500; font-family:var(--mono);
+    padding:3px 10px; border-radius:2px;
+    top:${elRect.top}px; left:${e.clientX - chipDragOffsetX}px;
+  `;
+  document.body.appendChild(chipDragClone);
+  document.addEventListener('mousemove', onChipDragMove);
+  document.addEventListener('mouseup', onChipDragEnd);
+}
+
+function onChipDragMove(e) {
+  if (!chipDragClone) return;
+  chipDragClone.style.left = (e.clientX - chipDragOffsetX) + 'px';
+
+  const siblings = [...chipDragEl.parentNode.children].filter(c =>
+    c !== chipDragEl && c.classList.contains('outcome-chip') && !c.classList.contains('add-chip-btn')
+  );
+  siblings.forEach(s => s.classList.remove('chip-drag-over-left', 'chip-drag-over-right'));
+
+  const { target, insertBefore } = findTagDropTarget(e, siblings);
+  if (target) target.classList.add(insertBefore ? 'chip-drag-over-left' : 'chip-drag-over-right');
+}
+
+function onChipDragEnd(e) {
+  if (!chipDragEl) return;
+  document.removeEventListener('mousemove', onChipDragMove);
+  document.removeEventListener('mouseup', onChipDragEnd);
+  if (chipDragClone) { chipDragClone.remove(); chipDragClone = null; }
+
+  const siblings = [...chipDragEl.parentNode.children].filter(c =>
+    c !== chipDragEl && c.classList.contains('outcome-chip') && !c.classList.contains('add-chip-btn')
+  );
+  siblings.forEach(s => s.classList.remove('chip-drag-over-left', 'chip-drag-over-right'));
+
+  const { target, insertBefore } = findTagDropTarget(e, siblings);
+  if (target) {
+    if (insertBefore) chipDragEl.parentNode.insertBefore(chipDragEl, target);
+    else target.after(chipDragEl);
+  }
+  chipDragEl.classList.remove('chip-dragging');
+  chipDragEl = null;
+}
+
 /* ─── DRAG & DROP ─── */
 function initDrag() {
   setupDraggable('.company', '.section > .company, .section > hr.divider');
@@ -2176,6 +2311,66 @@ function onDragEnd(e) {
   dragEl.classList.remove('dragging');
   dragEl = null;
 }
+
+/* ─── URL AUTO-LINK ─── */
+// Fix 4: blur 시 텍스트 내 URL을 클릭 가능한 링크로 자동 변환
+function autoLinkUrls(el) {
+  if (!el) return;
+  // 태그, 칩 등 짧은 텍스트 요소는 건너뜀
+  if (el.classList.contains('tag') || el.classList.contains('outcome-chip')) return;
+  if (el.classList.contains('phase-title') || el.classList.contains('phase-period')) return;
+  if (el.classList.contains('company-name') || el.classList.contains('company-meta')) return;
+
+  const urlRegex = /(https?:\/\/[^\s<>"')\]]+)/g;
+
+  // 텍스트 노드를 수집 (이미 <a> 안에 있는 건 제외)
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const nodes = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    let p = node.parentNode;
+    let inLink = false;
+    while (p && p !== el) {
+      if (p.tagName === 'A') { inLink = true; break; }
+      p = p.parentNode;
+    }
+    urlRegex.lastIndex = 0;
+    if (!inLink && urlRegex.test(node.textContent)) nodes.push(node);
+  }
+
+  nodes.forEach(textNode => {
+    const text = textNode.textContent;
+    const regex = /(https?:\/\/[^\s<>"')\]]+)/g;
+    let lastIndex = 0, match;
+    const frag = document.createDocumentFragment();
+    let hasLinks = false;
+
+    while ((match = regex.exec(text))) {
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const a = document.createElement('a');
+      a.href = match[1];
+      a.textContent = match[1];
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      frag.appendChild(a);
+      lastIndex = match.index + match[1].length;
+      hasLinks = true;
+    }
+    if (hasLinks) {
+      if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
+  });
+}
+
+// 편집 완료(blur) 시 URL 자동 링크 변환 (capture 사용으로 모든 contenteditable 대상)
+document.addEventListener('blur', (e) => {
+  if (editMode && e.target && e.target.getAttribute('contenteditable') === 'true') {
+    autoLinkUrls(e.target);
+  }
+}, true);
 
 /* ─── KEYBOARD SHORTCUTS ─── */
 document.addEventListener('keydown', (e) => {
