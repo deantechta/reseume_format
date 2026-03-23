@@ -2858,9 +2858,9 @@ function showUndoToast(msg, undoFn) {
   const existing = document.getElementById('undo-toast');
   if (existing) existing.remove();
 
-  const t = document.createElement('div');
-  t.id = 'undo-toast';
-  t.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#2a2826;color:rgba(255,255,255,0.85);font-family:\'DM Mono\',monospace;font-size:11px;padding:8px 14px;border-radius:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;gap:12px;transition:opacity 0.4s;';
+  const toast = document.createElement('div');
+  toast.id = 'undo-toast';
+  toast.style.cssText = 'position:fixed;bottom:80px;right:24px;background:#2a2826;color:rgba(255,255,255,0.85);font-family:\'DM Mono\',monospace;font-size:11px;padding:8px 14px;border-radius:4px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.35);display:flex;align-items:center;gap:12px;transition:opacity 0.4s;';
 
   const label = document.createElement('span');
   label.textContent = msg;
@@ -2875,15 +2875,15 @@ function showUndoToast(msg, undoFn) {
   const dismiss = () => {
     if (dismissed) return;
     dismissed = true;
-    t.style.opacity = '0';
-    setTimeout(() => t.remove(), 400);
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 400);
   };
 
   btn.onclick = () => { undoFn(); dismiss(); };
 
-  t.appendChild(label);
-  t.appendChild(btn);
-  document.body.appendChild(t);
+  toast.appendChild(label);
+  toast.appendChild(btn);
+  document.body.appendChild(toast);
   setTimeout(dismiss, 6000);
 }
 </script>
