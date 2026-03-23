@@ -1512,10 +1512,6 @@ function initTagColorChange() {
         const next = tag.nextSibling;
         showUndoToast(t('toastItemDeleted'), () => {
           parent.insertBefore(tag, next);
-          tag.dataset.colorReady = '';
-          tag.dataset.dragReady = '';
-          initTagColorChange();
-          initTagDrag();
         });
         tag.remove();
       });
@@ -1866,6 +1862,8 @@ const PALETTE_COLORS = [
   { hex: '#3a2480', name: { ko: '퍼플', en: 'Purple' } },
 ];
 
+let _colorPaletteCloseHandler = null;
+
 function openColorPalette(e) {
   e.stopPropagation();
   closeColorPalette();
@@ -1925,7 +1923,8 @@ function openColorPalette(e) {
   popup.appendChild(resetRow);
 
   document.body.appendChild(popup);
-  setTimeout(() => document.addEventListener('click', closeColorPalette), 0);
+  _colorPaletteCloseHandler = () => closeColorPalette();
+  setTimeout(() => document.addEventListener('click', _colorPaletteCloseHandler), 0);
 }
 
 function applyColor(hex) {
@@ -1942,7 +1941,10 @@ function applyColor(hex) {
 function closeColorPalette() {
   const el = document.getElementById('cpp');
   if (el) el.remove();
-  document.removeEventListener('click', closeColorPalette);
+  if (_colorPaletteCloseHandler) {
+    document.removeEventListener('click', _colorPaletteCloseHandler);
+    _colorPaletteCloseHandler = null;
+  }
 }
 
 /* ─── BULLET ADD / DELETE ─── */
@@ -2214,6 +2216,7 @@ function initCareerControls() {
         initDrag();
         initBulletControls();
         initChipControls();
+        initChipDrag();
         initCareerControls();
         phase.querySelector('.phase-title').focus();
         selectAll(phase.querySelector('.phase-title'));
@@ -2237,6 +2240,7 @@ function initCareerControls() {
       initDrag();
       initBulletControls();
       initChipControls();
+      initChipDrag();
       initCareerControls();
       company.querySelector('.company-name').focus();
       selectAll(company.querySelector('.company-name'));
@@ -2314,7 +2318,10 @@ function initSkillControls() {
       if (addBtn) addBtn.remove();
       const parent = group.parentNode;
       const next = group.nextSibling;
-      showUndoToast(t('toastGroupDeleted'), () => parent.insertBefore(group, next));
+      showUndoToast(t('toastGroupDeleted'), () => {
+        parent.insertBefore(group, next);
+        initSkillControls();
+      });
       group.remove();
     });
     title.insertBefore(x, title.firstChild);
