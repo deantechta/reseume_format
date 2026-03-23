@@ -230,6 +230,19 @@ plan.md      — 한영 토글 기능 구현 계획
 
 ## Changelog
 
+### v0.8 — 2026-03-23
+
+#### 버그 수정 (태그·블록 관리 개선)
+- **삭제 시 Undo 토스트 일관 적용** — 불릿 항목, 성과 칩, 스킬 항목, 태그 삭제 시에도 Undo 토스트가 표시되어 즉시 복구 가능 (기존에는 Phase/경력/연락처/문단만 지원)
+- **새로 추가된 항목의 삭제 핸들러 일관 적용** — 동적으로 생성된 연락처, 문단, 불릿, 칩, 스킬 항목의 × 버튼에도 Undo 토스트 적용
+- **이벤트 리스너 누수 수정** — 태그 색상 팝업(`openTagColorPopup`)과 색상 팔레트(`openColorPalette`)의 `closeHandler`를 전역 변수로 추적하여, 팝업 반복 열기 시 리스너가 누적되지 않도록 수정
+- **툴바 mousedown 리스너 중복 등록 방지** — 편집 모드를 반복 On/Off 할 때 `.tb-btn` mousedown 핸들러가 중복 등록되던 문제 수정
+- **스킬 그룹 삭제 Undo 시 + 버튼 복원** — 스킬 그룹 삭제 후 되돌리기 시 `initSkillControls()` 재실행으로 + 항목 추가 버튼도 함께 복구
+- **Phase/경력 추가 시 칩 드래그 누락 수정** — `createNewPhase()` / `createNewCompany()` 후 `initChipDrag()` 호출 추가로 새 칩도 즉시 드래그 가능
+- **HTML 내보내기 시 내부 data 속성 정리** — `getCleanHTMLString()`에서 `data-color-ready`, `data-drag-ready`, `data-add-ready`, `data-chip-drag-ready`, `spellcheck` 속성 제거 추가 (기존에는 `getPageContentSnapshot()`에서만 정리)
+
+---
+
 ### v0.7 — 2026-03-23
 
 #### 신규 기능
