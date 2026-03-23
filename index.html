@@ -1508,6 +1508,15 @@ function initTagColorChange() {
       del.addEventListener('click', (e) => {
         e.stopPropagation();
         closeTagColorPopup();
+        const parent = tag.parentNode;
+        const next = tag.nextSibling;
+        showUndoToast(t('toastItemDeleted'), () => {
+          parent.insertBefore(tag, next);
+          tag.dataset.colorReady = '';
+          tag.dataset.dragReady = '';
+          initTagColorChange();
+          initTagDrag();
+        });
         tag.remove();
       });
       tag.appendChild(del);
@@ -1548,6 +1557,8 @@ function initTagAddBtn() {
   });
 }
 
+let _tagPopupCloseHandler = null;
+
 function openTagColorPopup(tag) {
   closeTagColorPopup();
   const currentCls = TAG_COLORS.find(c => tag.classList.contains(c.cls))?.cls;
@@ -1564,7 +1575,6 @@ function openTagColorPopup(tag) {
     sw.title = label[currentLang] || label.ko;
     sw.onclick = (e) => {
       e.stopPropagation();
-      document.removeEventListener('click', closeHandler);
       TAG_COLORS.forEach(c => tag.classList.remove(c.cls));
       tag.classList.add(cls);
       closeTagColorPopup();
@@ -1573,12 +1583,17 @@ function openTagColorPopup(tag) {
   });
 
   tag.appendChild(popup);
+  _tagPopupCloseHandler = closeHandler;
   setTimeout(() => document.addEventListener('click', closeHandler), 0);
 }
 
 function closeTagColorPopup() {
   const el = document.getElementById('tcp');
   if (el) el.remove();
+  if (_tagPopupCloseHandler) {
+    document.removeEventListener('click', _tagPopupCloseHandler);
+    _tagPopupCloseHandler = null;
+  }
 }
 
 /* ─── SHARED: 편집 UI 제거된 HTML 문자열 반환 ─── */
@@ -1597,6 +1612,11 @@ function getCleanHTMLString(snapshotDate) {
     '.skill-add-item-btn', '.skill-add-group-btn',
   ];
   editSelectors.forEach(sel => clone.querySelectorAll(sel).forEach(el => el.remove()));
+
+  // Clean up internal data attributes used by edit mode
+  clone.querySelectorAll('[spellcheck]').forEach(el => el.removeAttribute('spellcheck'));
+  ['data-color-ready','data-drag-ready','data-add-ready','data-chip-drag-ready']
+    .forEach(attr => clone.querySelectorAll('[' + attr + ']').forEach(el => el.removeAttribute(attr)));
 
   clone.querySelectorAll('[style*="position:fixed"]').forEach(el => el.remove());
 
@@ -1719,6 +1739,7 @@ async function loadJSON() {
 
 /* ─── EDIT MODE TOGGLE ─── */
 let editMode = false;
+let _tbBtnMousedownReady = false;
 
 function toggleEdit() {
   editMode = !editMode;
@@ -1741,10 +1762,13 @@ function toggleEdit() {
     initSkillControls();
     initContactControls();
     initNoteControls();
-    // Fix 3: 툴바 버튼 mousedown 시 포커스 이동(선택 영역 소실) 방지
-    document.querySelectorAll('.edit-toolbar .tb-btn').forEach(btn => {
-      btn.addEventListener('mousedown', e => e.preventDefault());
-    });
+    // Fix 3: 툴바 버튼 mousedown 시 포커스 이동(선택 영역 소실) 방지 (한 번만 등록)
+    if (!_tbBtnMousedownReady) {
+      _tbBtnMousedownReady = true;
+      document.querySelectorAll('.edit-toolbar .tb-btn').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+      });
+    }
     initUndoSystem();
     setTimeout(initDirtyObserver, 0);
   } else {
@@ -1929,7 +1953,12 @@ function initBulletControls() {
     btn.className = 'del-btn';
     btn.textContent = '✕';
     btn.title = t('deleteItem');
-    btn.onclick = () => li.remove();
+    btn.onclick = () => {
+      const parent = li.parentNode;
+      const next = li.nextSibling;
+      showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(li, next));
+      li.remove();
+    };
     li.appendChild(btn);
   });
 
@@ -1948,7 +1977,12 @@ function initBulletControls() {
       const delBtn = document.createElement('button');
       delBtn.className = 'del-btn';
       delBtn.textContent = '✕';
-      delBtn.onclick = () => li.remove();
+      delBtn.onclick = () => {
+        const parent = li.parentNode;
+        const next = li.nextSibling;
+        showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(li, next));
+        li.remove();
+      };
       li.appendChild(span);
       li.appendChild(delBtn);
       ul.appendChild(li);
@@ -1968,7 +2002,13 @@ function initChipControls() {
     x.textContent = '✕';
     // Fix 3: contenteditable 내부에서 텍스트로 인식되지 않도록
     x.setAttribute('contenteditable', 'false');
-    x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
+    x.onclick = (e) => {
+      e.stopPropagation();
+      const parent = chip.parentNode;
+      const next = chip.nextSibling;
+      showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(chip, next));
+      chip.remove();
+    };
     chip.appendChild(x);
   });
 
@@ -1988,7 +2028,13 @@ function initChipControls() {
       x.textContent = '✕';
       // Fix 3: contenteditable 내부에서 텍스트로 인식되지 않도록
       x.setAttribute('contenteditable', 'false');
-      x.onclick = (e) => { e.stopPropagation(); chip.remove(); };
+      x.onclick = (e) => {
+        e.stopPropagation();
+        const parent = chip.parentNode;
+        const next = chip.nextSibling;
+        showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(chip, next));
+        chip.remove();
+      };
       chip.appendChild(x);
       row.insertBefore(chip, btn);
       initChipDrag(); // Fix 5: 새로 추가된 칩에도 드래그 적용
@@ -2211,7 +2257,13 @@ function initSkillControls() {
     x.textContent = '✕';
     x.title = t('deleteItem');
     x.addEventListener('mousedown', e => e.stopPropagation());
-    x.addEventListener('click', e => { e.stopPropagation(); span.remove(); });
+    x.addEventListener('click', e => {
+      e.stopPropagation();
+      const parent = span.parentNode;
+      const next = span.nextSibling;
+      showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(span, next));
+      span.remove();
+    });
     span.appendChild(x);
   });
 
@@ -2231,7 +2283,13 @@ function initSkillControls() {
       x.setAttribute('contenteditable', 'false');
       x.textContent = '✕';
       x.addEventListener('mousedown', e => e.stopPropagation());
-      x.addEventListener('click', e => { e.stopPropagation(); span.remove(); });
+      x.addEventListener('click', e => {
+        e.stopPropagation();
+        const parent = span.parentNode;
+        const next = span.nextSibling;
+        showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(span, next));
+        span.remove();
+      });
       span.appendChild(x);
       list.appendChild(span);
       span.focus();
@@ -2334,7 +2392,13 @@ function initContactControls() {
       x.setAttribute('contenteditable', 'false');
       x.textContent = '✕';
       x.addEventListener('mousedown', e => e.stopPropagation());
-      x.addEventListener('click', e => { e.stopPropagation(); div.remove(); });
+      x.addEventListener('click', e => {
+        e.stopPropagation();
+        const parent = div.parentNode;
+        const next = div.nextSibling;
+        showUndoToast(t('toastItemDeleted'), () => parent.insertBefore(div, next));
+        div.remove();
+      });
       div.appendChild(x);
       block.insertBefore(div, btn);
       div.focus();
@@ -2385,7 +2449,13 @@ function initNoteControls() {
       x.setAttribute('contenteditable', 'false');
       x.textContent = '✕';
       x.addEventListener('mousedown', e => e.stopPropagation());
-      x.addEventListener('click', e => { e.stopPropagation(); p.remove(); });
+      x.addEventListener('click', e => {
+        e.stopPropagation();
+        const parent = p.parentNode;
+        const next = p.nextSibling;
+        showUndoToast(t('toastParagraphDeleted'), () => parent.insertBefore(p, next));
+        p.remove();
+      });
       p.appendChild(x);
       noteBox.appendChild(p);
       p.focus();
